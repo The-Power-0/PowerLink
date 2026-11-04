@@ -36,6 +36,15 @@ def _short(value: Any, name: str, *, required: bool = False, limit: int = 300) -
     return value.strip()
 
 
+def _plex_thumb_path(value: Any) -> str:
+    """Keep only a bounded server-relative Plex artwork path.
+
+    Artwork is resolved through the selected Plex client on the destination,
+    never through an arbitrary URL provided by a handoff payload.
+    """
+    return value if isinstance(value, str) and value.startswith("/") and len(value) <= 1024 else ""
+
+
 def _copy(value: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         raise HandoffError("Each media copy must be an object")
@@ -60,6 +69,7 @@ def _copy(value: Mapping[str, Any]) -> dict[str, Any]:
         "video_codec": _short(value.get("video_codec"), "video_codec", limit=40),
         "media_index": media_index,
         "media_id": media_id,
+        "thumb_path": _plex_thumb_path(value.get("thumb_path")),
     }
 
 
@@ -90,6 +100,7 @@ def _entry(value: Mapping[str, Any]) -> dict[str, Any]:
         "rating_key": _short(value.get("rating_key"), "rating_key"),
         "show_guid": _short(value.get("show_guid"), "show_guid"),
         "show_title": _short(value.get("show_title"), "show_title"),
+        "thumb_path": _plex_thumb_path(value.get("thumb_path")),
         "season": season,
         "episode": episode,
         "year": year,
@@ -246,11 +257,23 @@ class WindowPlanner:
                 found = await self.lookup(entry)
             candidates.extend(found)
             choice = choose_copy(entry, candidates, self.policy)
+        # The queue renderer needs lightweight display metadata without
+        # fetching every episode on a memory-constrained Fire Stick.
+        # Prefer artwork from the selected 4K/HD copy; otherwise reuse the
+        # already-known Plex path if both variants belong to the same server.
+        thumb = (choice or {}).get("thumb_path") or ""
+        if not thumb and (choice is None or choice["server_id"] == entry["server_id"]):
+            thumb = entry.get("thumb_path", "")
         value = {
             "index": index,
             "status": "resolved" if choice else "unavailable",
             "title": entry["title"],
             "kind": entry["kind"],
+            "show_title": entry["show_title"],
+            "season": entry["season"],
+            "episode": entry["episode"],
+            "year": entry["year"],
+            "thumb_path": thumb,
             "media": choice,
         }
         async with self._lock:
@@ -345,6 +368,7 @@ def from_plex_queue_response(source: Mapping[str, Any],
                 "library_title": str(row.get("librarySectionTitle") or ""),
                 "media_index": media_index,
                 "media_id": str(version.get("id") or ""),
+                "thumb_path": _plex_thumb_path(row.get("thumb")),
             })
         season = row.get("parentIndex") if kind == "episode" else None
         episode = row.get("index") if kind == "episode" else None
@@ -358,6 +382,7 @@ def from_plex_queue_response(source: Mapping[str, Any],
             "guid": guid, "server_id": server_id, "rating_key": rating_key,
             "show_guid": str(row.get("grandparentGuid") or ""),
             "show_title": str(row.get("grandparentTitle") or ""),
+            "thumb_path": _plex_thumb_path(row.get("thumb") or row.get("grandparentThumb")),
             "season": number_or_none(season), "episode": number_or_none(episode),
             "year": number_or_none(year), "copies": copies,
         })
