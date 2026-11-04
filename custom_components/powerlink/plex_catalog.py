@@ -11,6 +11,7 @@ import time
 from collections import OrderedDict
 from typing import Any, Mapping
 
+from aiohttp import ClientError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .handoff import HandoffError, from_plex_queue_response
@@ -90,23 +91,72 @@ class PlexCopyCatalog:
         session = async_get_clientsession(self.hass)
 
         async def fetch_page(center: int, window: int) -> dict[str, Any]:
-            async with session.get(
-                f"{self.base_url}/playQueues/{queue_id}",
-                params={
-                    "center": str(center), "window": str(window),
-                    "includeBefore": "1", "includeAfter": "1", "own": "0",
-                },
-                headers={"X-Plex-Token": self.token, "Accept": "application/json"},
-                allow_redirects=False,
-            ) as response:
-                response.raise_for_status()
-                body = await response.content.read(1_500_001)
-                if len(body) > 1_500_000:
-                    raise HandoffError("Plex queue page exceeds its response limit")
-                decoded = json.loads(body)
-                if not isinstance(decoded, dict):
-                    raise HandoffError("Plex queue page is not an object")
-                return decoded
+            # Preserve the current Plex queue: own=0 prevents stealing it
+            # from the playing client. Never send an HA account token to Plex.
+            try:
+                async with session.get(
+                    f"{self.base_url}/playQueues/{queue_id}",
+                    params={
+                        "center": str(center), "window": str(window),
+                        "includeBefore": "1", "includeAfter": "1", "own": "0",
+                    },
+                    headers={
+                        "X-Plex-Token": self.token,
+                        "X-Plex-Product": "PowerLink",
+                        "X-Plex-Client-Identifier": "powerlink-homeassistant",
+                        "Accept": "application/json",
+                    },
+                    allow_redirects=False,
+                ) as response:
+                    if response.status in (401, 403):
+                        raise HandoffError(
+                            "Plex rejected the configured token for this play queue "
+                            f"(HTTP {response.status}). Check PowerLink's Plex token "
+                            "and that it belongs to the same Plex account/profile as "
+                            "the source Fire Stick."
+                        )
+                    if response.status == 404:
+                        raise HandoffError(
+                            "Plex could not find the active play queue (HTTP 404). "
+                            "Verify PowerLink points to the same Plex server and "
+                            "account/profile as the source; the queue may have expired. "
+                            "Start a fresh queue on the source and retry."
+                        )
+                    if response.status != 200:
+                        raise HandoffError(
+                            f"Plex play queue request returned HTTP {response.status}. "
+                            "Check the configured Plex server address and its permissions."
+                        )
+
+                    # aiohttp StreamReader.read(n) is permitted to return fewer
+                    # bytes than n while the response is still streaming. Read
+                    # bounded chunks until EOF to avoid intermittently parsing
+                    # incomplete JSON, especially on long shuffled queues.
+                    body = bytearray()
+                    async for chunk in response.content.iter_chunked(65536):
+                        body.extend(chunk)
+                        if len(body) > 1_500_000:
+                            raise HandoffError(
+                                "Plex play queue window exceeded the 1.5 MB safety limit"
+                            )
+                    try:
+                        decoded = json.loads(body)
+                    except (ValueError, UnicodeError) as err:
+                        raise HandoffError(
+                            "Plex returned invalid or incomplete JSON for the play queue. "
+                            "Check the configured Plex URL points directly to Plex Media Server."
+                        ) from err
+                    if not isinstance(decoded, dict):
+                        raise HandoffError("Plex returned a non-object play queue response")
+                    return decoded
+            except (ClientError, OSError, TimeoutError) as err:
+                # Preserve a safe error category, never log URLs, Plex token,
+                # HTTP response bodies, or customer metadata.
+                raise HandoffError(
+                    f"Could not connect to Plex to read its play queue "
+                    f"({type(err).__name__}). Check server URL, DNS/TLS "
+                    "and Home Assistant container network connectivity."
+                ) from err
 
         try:
             async with asyncio.timeout(45):
@@ -115,9 +165,19 @@ class PlexCopyCatalog:
                 )
         except HandoffError:
             raise
+        except TimeoutError as err:
+            raise HandoffError(
+                "Plex play queue capture exceeded 45 seconds. "
+                "The source is still playing; check Plex responsiveness "
+                "and retry with a smaller queue."
+            ) from err
         except Exception as err:
-            # Do not log Plex tokens or the response URL.
-            raise HandoffError("Cannot retrieve complete authoritative Plex queue on Home Assistant") from err
+            # Unexpected error categories are safe to report without exposing
+            # server URLs, response bodies, tokens, or media titles.
+            raise HandoffError(
+                "Unexpected error retrieving the Plex play queue on Home Assistant "
+                f"({type(err).__name__}). Check Home Assistant's PowerLink logs."
+            ) from err
         return from_plex_queue_response(source, container)
 
     async def find_copies(self, entry: Mapping[str, Any]) -> list[dict[str, Any]]:
