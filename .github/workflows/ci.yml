@@ -1,0 +1,51 @@
+name: Validate PowerLink HACS Integration
+on:
+  push:
+    branches:
+      - main
+      - 'migration/**'
+      - 'feature/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Compile all Python integration and test sources
+        run: python -m compileall -q custom_components/powerlink tests
+      - name: Verify HACS layout, package metadata and links
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          base = Path("custom_components/powerlink")
+          meta = json.loads((base / "manifest.json").read_text())
+          hacs = json.loads(Path("hacs.json").read_text())
+          strings = json.loads((base / "strings.json").read_text())
+          url = "https://github.com/The-Power-0/PowerLink"
+          assert meta["domain"] == "powerlink"
+          assert meta["version"] == "0.1.0"
+          assert meta["config_flow"] is True
+          assert meta["documentation"] == url
+          assert meta["issue_tracker"] == url + "/issues"
+          assert meta["integration_type"] == "hub"
+          assert hacs["name"] == "PowerLink"
+          assert hacs["content_in_root"] is False
+          assert strings and isinstance(strings, dict)
+          assert (base / "__init__.py").exists()
+          assert (base / "services.yaml").exists()
+          assert Path("README.md").exists()
+          assert Path("LICENSE").exists()
+          assert not Path("powerlink/custom_components").exists()
+          PY
+      - name: Run source policy, queue identity, quality and device tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
