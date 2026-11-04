@@ -16,6 +16,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .handoff import HandoffError, from_plex_queue_response
 from .queue_collect import collect_plex_play_queue
+from .plex_queue_response import decode_plex_queue_page
 
 
 def _height(value: Any) -> int | None:
@@ -108,47 +109,7 @@ class PlexCopyCatalog:
                     },
                     allow_redirects=False,
                 ) as response:
-                    if response.status in (401, 403):
-                        raise HandoffError(
-                            "Plex rejected the configured token for this play queue "
-                            f"(HTTP {response.status}). Check PowerLink's Plex token "
-                            "and that it belongs to the same Plex account/profile as "
-                            "the source Fire Stick."
-                        )
-                    if response.status == 404:
-                        raise HandoffError(
-                            "Plex could not find the active play queue (HTTP 404). "
-                            "Verify PowerLink points to the same Plex server and "
-                            "account/profile as the source; the queue may have expired. "
-                            "Start a fresh queue on the source and retry."
-                        )
-                    if response.status != 200:
-                        raise HandoffError(
-                            f"Plex play queue request returned HTTP {response.status}. "
-                            "Check the configured Plex server address and its permissions."
-                        )
-
-                    # aiohttp StreamReader.read(n) is permitted to return fewer
-                    # bytes than n while the response is still streaming. Read
-                    # bounded chunks until EOF to avoid intermittently parsing
-                    # incomplete JSON, especially on long shuffled queues.
-                    body = bytearray()
-                    async for chunk in response.content.iter_chunked(65536):
-                        body.extend(chunk)
-                        if len(body) > 1_500_000:
-                            raise HandoffError(
-                                "Plex play queue window exceeded the 1.5 MB safety limit"
-                            )
-                    try:
-                        decoded = json.loads(body)
-                    except (ValueError, UnicodeError) as err:
-                        raise HandoffError(
-                            "Plex returned invalid or incomplete JSON for the play queue. "
-                            "Check the configured Plex URL points directly to Plex Media Server."
-                        ) from err
-                    if not isinstance(decoded, dict):
-                        raise HandoffError("Plex returned a non-object play queue response")
-                    return decoded
+                    return await decode_plex_queue_page(response)
             except (ClientError, OSError, TimeoutError) as err:
                 # Preserve a safe error category, never log URLs, Plex token,
                 # HTTP response bodies, or customer metadata.

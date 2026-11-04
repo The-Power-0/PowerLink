@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import asyncio
-import shlex
+
+from .adb_commands import launcher_command, deep_link_command
 
 from homeassistant.core import HomeAssistant, Context
 from homeassistant.helpers.event import async_track_state_change_event
@@ -97,7 +98,7 @@ async def launch_powerplay(hass: HomeAssistant, device: DeviceSettings,
     """
     if device.launch_method == "adb":
         if uri:
-            command = "am start -a android.intent.action.VIEW -d " + shlex.quote(uri) + " " + APP_ID
+            command = deep_link_command(uri)
             await hass.services.async_call(
                 "androidtv", "adb_command",
                 {"entity_id": device.entity_id, "command": command},
@@ -108,10 +109,7 @@ async def launch_powerplay(hass: HomeAssistant, device: DeviceSettings,
             # interpret Android package IDs as selectable HA sources. Launch
             # the package using the same Android launcher command supported
             # by existing HA Fire TV automations and verified manually.
-            command = (
-                "monkey -p " + shlex.quote(APP_ID)
-                + " -c android.intent.category.LAUNCHER 1"
-            )
+            command = launcher_command()
             await hass.services.async_call(
                 "androidtv", "adb_command",
                 {"entity_id": device.entity_id, "command": command},
