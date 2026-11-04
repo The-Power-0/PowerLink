@@ -54,7 +54,7 @@ class PlexQueueCollectionTests(unittest.IsolatedAsyncioTestCase):
         result = await collect.collect_plex_play_queue(
             fetch, play_queue_id=701, selected_item_id=500
         )
-        self.assertEqual(calls, [(500, 250)])
+        self.assertEqual(calls, [(500, 32)])
         self.assertEqual(result["playQueueSelectedItemOffset"], 2)
         self.assertEqual([r["ratingKey"] for r in result["Metadata"]],
                          ["11", "22", "11", "33", "44"])
