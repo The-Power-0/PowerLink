@@ -46,7 +46,9 @@ class DeviceManagerTests(unittest.TestCase):
             ENTITY, form(wake_mode="script", wake_script="script.tv_wake")
         )
         self.assertEqual(result.wake_steps[0]["domain"], "script")
+        self.assertEqual(result.wake_steps[0]["service"], "tv_wake")
         self.assertEqual(result.wake_steps[0]["entity_id"], "script.tv_wake")
+        self.assertEqual(result.wake_steps[0]["timeout"], 600.0)
 
     def test_existing_complex_wake_steps_survive_edits(self):
         original = device.DeviceSettings.parse({

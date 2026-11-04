@@ -37,7 +37,7 @@ Once PowerLink is installed and configured, go to **Settings → Devices & Servi
 1. **Find Fire TV / Android TV devices** lists matching media player entities already managed by Home Assistant, including their current status. Choose one, then save its settings. PowerLink never opens a second ADB connection or scans your subnet.
 2. **Add a device manually** selects another existing media player or remote entity. Use a custom launch script for remote-network bridges or integrations without Android TV ADB support.
 3. **Edit a registered device** changes its name, supported resolution (select 1080p for HD-only devices; 2160p for 4K-capable devices), preferred quality, app-launch method, HA endpoint override and verified PowerLink v1 receiver status.
-4. **Power-on routine** can be None, a safe state-aware \`media_player.turn_on\`, or a chosen Home Assistant script. Existing complex routines are preserved when editing normal settings. **Edit advanced wake routine** opens a JSON/object editor for conditional multi-step sequences.
+4. **Power-on routine** can be None, a safe state-aware \`media_player.turn_on\`, or a chosen Home Assistant script (called directly and awaited; a failed script blocks launch). Existing complex routines are preserved when editing normal settings. **Edit advanced wake routine** opens a JSON/object editor for conditional multi-step sequences.
 5. **Remove a device** requires confirmation and unregisters it from PowerLink without deleting the Home Assistant entity.
 
 The discovery list contains entities **already integrated with Home Assistant**; it does not automatically discover a completely unpaired Fire Stick on the LAN. First add such a stick through Home Assistant's Android TV / ADB integration. The v1 receiver checkbox defaults to off because a handoff cannot be considered verified until PowerPlay 1.3.0+ is installed and end-to-end tested.
@@ -67,7 +67,7 @@ data:
       timeout: 20
 ~~~
 
-Each device's wake steps are optional. For displays requiring CEC, smart plugs, input switching, delays, or other routines, use additional HA service/wait/delay steps. Every step has a bounded timeout and only executes when launching. **Never toggle a smart plug that powers a running device unexpectedly**; configure your own sequence.
+Each device's wake steps are optional. For displays requiring CEC, smart plugs, input switching, delays, or other routines, use additional HA service/wait/delay steps. Every step has a bounded timeout and only executes when launching. **Never toggle a smart plug that powers a running device unexpectedly**; configure your own sequence. For cooldown-sensitive TVs, select **Run a Home Assistant script** and choose a wake-only script that verifies safety guards and power confirmation before returning. PowerLink calls that script directly and waits up to 600 seconds; errors abort launch. Do not choose a shuffle/playback script as a wake script or PowerPlay may start too early. In the advanced editor, use direct `script.<script_id>` calls rather than `script.turn_on`.
 
 For a remote/second network, choose `launch_method: script` and `launch_script: script.my_fire_tv_handoff`. The script receives `powerlink_uri` as a variable and can forward it through an existing secure VPN, broker, remote HA instance or service. That transport must be configured by the user; it isn't bundled.
 

@@ -61,8 +61,10 @@ def build_device_settings(
         settings["wake_steps"] = [{
             "kind": "service",
             "domain": "script",
-            "service": "turn_on",
+            # Direct script service awaits completion (unlike script.turn_on).
+            "service": wake_script.split(".", 1)[1],
             "entity_id": wake_script,
+            "timeout": 600,
         }]
     elif wake_mode != "keep":
         raise HandoffError("Unknown wake routine")

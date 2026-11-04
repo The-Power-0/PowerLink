@@ -61,6 +61,11 @@ def validate_steps(raw: Any) -> tuple[dict[str, Any], ...]:
                 raise HandoffError("service step needs valid domain")
             if not isinstance(service, str) or not re.fullmatch(r"[a-z_]+", service or ""):
                 raise HandoffError("service step needs valid service")
+            # A guarded TV wake script can take several minutes.
+            timeout = step.get("timeout", 30)
+            if (isinstance(timeout, bool) or not isinstance(timeout, (int, float))
+                    or not 1 <= timeout <= 600):
+                raise HandoffError("service timeout must be 1 to 600 seconds")
             data = step.get("data", {})
             if not isinstance(data, dict) or len(str(data)) > 3000:
                 raise HandoffError("service step data is invalid or too large")
@@ -84,6 +89,7 @@ def validate_steps(raw: Any) -> tuple[dict[str, Any], ...]:
             result.append({
                 "kind": kind, "domain": domain, "service": service, "entity_id": entity,
                 "data": dict(data), "when_not_states": list(condition),
+                "timeout": float(timeout),
                 "when": {
                     "entity_id": when_entity,
                     "states": list(when.get("states", [])),
