@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "PowerLink controller",
+        "description": "Enter the Home Assistant base URL the PowerPlay devices can reach. Local HTTP is permitted only on a private network; use HTTPS for cross-network handoffs. Plex server credentials are optional and remain inside Home Assistant.",
+        "data": {
+          "name": "Name",
+          "base_url": "Home Assistant reachable base URL",
+          "plex_base_url": "Optional Plex server base URL",
+          "plex_token": "Optional Plex X-Plex-Token"
+        }
+      }
+    },
+    "error": {
+      "invalid_settings": "Supply valid accessible URLs and both Plex fields or neither."
+    }
+  },
+  "services": {
+    "discover_devices": {
+      "name": "Discover devices",
+      "description": "List existing compatible media players."
+    },
+    "register_device": {
+      "name": "Register device",
+      "description": "Set resolution policy, launch method and wake routine.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "Existing Home Assistant media player entity."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Friendly room name."
+        },
+        "max_height": {
+          "name": "Maximum video height",
+          "description": "Maximum supported resolution in pixels."
+        },
+        "launch_method": {
+          "name": "Launch method",
+          "description": "ADB or user-provided HA script."
+        },
+        "launch_script": {
+          "name": "Launch script",
+          "description": "Script entity to receive powerlink_uri variable."
+        },
+        "wake_steps": {
+          "name": "Wake steps",
+          "description": "Optional ordered service, delay and wait_state actions."
+        }
+      }
+    },
+    "open_device": {
+      "name": "Open device",
+      "description": "Wake and launch PowerPlay without a handoff.",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "Registered destination device."
+        }
+      }
+    },
+    "prepare_handoff": {
+      "name": "Prepare handoff",
+      "description": "Prepare an exact queue manifest without waking the destination.",
+      "fields": {
+        "destination": {
+          "name": "Destination",
+          "description": "Registered target entity ID."
+        },
+        "snapshot": {
+          "name": "Snapshot",
+          "description": "PowerPlay v1 ordered playback queue snapshot."
+        }
+      }
+    },
+    "handoff": {
+      "name": "Handoff",
+      "description": "Execute a prepared handoff to a v1-capable PowerPlay device.",
+      "fields": {
+        "destination": {
+          "name": "Destination",
+          "description": "Registered destination."
+        },
+        "snapshot": {
+          "name": "Snapshot",
+          "description": "PowerPlay v1 ordered queue snapshot."
+        }
+      }
+    }
+  }
+}
