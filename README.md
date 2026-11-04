@@ -30,7 +30,19 @@ This is an example only. The integration **does not** hard-code names, addresses
 | `media_player.bedroom_fire_tv_stick_lite` | 1080p | ADB or custom script | Match HD version |
 | `media_player.game_room_fire_tv_stick_lite` | 1080p | ADB or custom script | Match HD version |
 
-Discover candidates with `powerlink.discover_devices`. Register one device at a time using `powerlink.register_device`:
+### Manage devices from Home Assistant's UI
+
+Once PowerLink is installed and configured, go to **Settings → Devices & Services → PowerLink → Configure**. No Developer Tools actions or YAML are required for normal device management.
+
+1. **Find Fire TV / Android TV devices** lists matching media player entities already managed by Home Assistant, including their current status. Choose one, then save its settings. PowerLink never opens a second ADB connection or scans your subnet.
+2. **Add a device manually** selects another existing media player or remote entity. Use a custom launch script for remote-network bridges or integrations without Android TV ADB support.
+3. **Edit a registered device** changes its name, supported resolution (select 1080p for HD-only devices; 2160p for 4K-capable devices), preferred quality, app-launch method, HA endpoint override and verified PowerLink v1 receiver status.
+4. **Power-on routine** can be None, a safe state-aware \`media_player.turn_on\`, or a chosen Home Assistant script. Existing complex routines are preserved when editing normal settings. **Edit advanced wake routine** opens a JSON/object editor for conditional multi-step sequences.
+5. **Remove a device** requires confirmation and unregisters it from PowerLink without deleting the Home Assistant entity.
+
+The discovery list contains entities **already integrated with Home Assistant**; it does not automatically discover a completely unpaired Fire Stick on the LAN. First add such a stick through Home Assistant's Android TV / ADB integration. The v1 receiver checkbox defaults to off because a handoff cannot be considered verified until PowerPlay 1.3.0+ is installed and end-to-end tested.
+
+The existing Developer Tools actions remain available for advanced automation and programmatic registration. For example, \`powerlink.register_device\` can configure custom wake steps:
 
 ~~~yaml
 action: powerlink.register_device
