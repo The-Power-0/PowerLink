@@ -252,5 +252,76 @@ class PlexServerQueueCaptureTests(unittest.TestCase):
         with self.assertRaises(HandoffError):
             handoff.from_plex_queue_response(self._source(), response)
 
+
+
+class QueueVisualMetadataTests(unittest.IsolatedAsyncioTestCase):
+    """Plex queue presentation must survive HD/4K handoff without extra calls."""
+
+    async def test_plex_queue_capture_retains_show_season_episode_and_thumbnail(self):
+        base = PlexServerQueueCaptureTests()
+        source = base._source()
+        response = base._response()
+        response["Metadata"][0]["thumb"] = "/library/metadata/111/thumb/1"
+        response["Metadata"][1]["thumb"] = "/library/metadata/222/thumb/2"
+        snapshot = handoff.from_plex_queue_response(source, response)
+        self.assertEqual(snapshot.items[1]["show_title"], "Comedy")
+        self.assertEqual((snapshot.items[1]["season"], snapshot.items[1]["episode"]), (1, 2))
+        self.assertEqual(snapshot.items[1]["thumb_path"], "/library/metadata/222/thumb/2")
+        planner = WindowPlanner(snapshot, DevicePolicy(2160))
+        window = await planner.window(0, 3)
+        self.assertEqual([v["index"] for v in window["items"]], [0, 1, 2])
+        self.assertEqual(window["current_index"], 1)
+        self.assertTrue(window["shuffled"])
+        self.assertEqual(window["items"][1]["show_title"], "Comedy")
+        self.assertEqual(window["items"][1]["season"], 1)
+        self.assertEqual(window["items"][1]["episode"], 2)
+        self.assertEqual(window["items"][1]["thumb_path"], "/library/metadata/222/thumb/2")
+
+    async def test_4k_copy_artwork_preferred_without_extra_lookup(self):
+        item = entry("Pilot", "hd", height=1080)
+        item["thumb_path"] = "/library/metadata/hd/thumb/100"
+        item["copies"].append({
+            "server_id": "plex-1", "rating_key": "uhd",
+            "height": 2160, "bitrate_kbps": 16000,
+            "guid": item["guid"], "library_title": "TV Shows [4K]",
+            "thumb_path": "/library/metadata/uhd/thumb/200",
+        })
+        calls = []
+        async def lookup(_):
+            calls.append(True)
+            return []
+        planner = WindowPlanner(snapshot([item]), DevicePolicy(2160), lookup)
+        row = await planner.item(0)
+        self.assertEqual(row["media"]["rating_key"], "uhd")
+        self.assertEqual(row["thumb_path"], "/library/metadata/uhd/thumb/200")
+        self.assertEqual(row["show_title"], "Test Sitcom")
+        self.assertEqual((row["season"], row["episode"]), (2, 4))
+        self.assertEqual(calls, [])
+
+    async def test_same_server_copy_can_use_source_thumbnail_as_fallback(self):
+        item = entry("Pilot", "1080", height=1080)
+        item["thumb_path"] = "/library/metadata/1080/thumb/100"
+        row = await WindowPlanner(snapshot([item]), DevicePolicy(1080)).item(0)
+        self.assertEqual(row["thumb_path"], "/library/metadata/1080/thumb/100")
+
+    async def test_image_paths_reject_untrusted_urls_without_failing_handoff(self):
+        item = entry("Pilot", "1080", height=1080)
+        item["thumb_path"] = "https://example.org/picture.jpg"
+        item["copies"][0]["thumb_path"] = "https://example.org/other.jpg"
+        row = await WindowPlanner(snapshot([item]), DevicePolicy(1080)).item(0)
+        self.assertEqual(row["thumb_path"], "")
+        self.assertEqual(row["status"], "resolved")
+
+    async def test_unavailable_media_retains_episode_metadata_and_slot(self):
+        item = entry("Pilot", "uhd", height=2160)
+        item["thumb_path"] = "/library/metadata/uhd/thumb/1"
+        planner = WindowPlanner(snapshot([item]), DevicePolicy(1080))
+        row = await planner.item(0)
+        self.assertEqual(row["status"], "unavailable")
+        self.assertEqual(row["index"], 0)
+        self.assertEqual((row["season"], row["episode"]), (2, 4))
+        self.assertEqual(row["thumb_path"], "/library/metadata/uhd/thumb/1")
+
+
 if __name__ == "__main__":
     unittest.main()

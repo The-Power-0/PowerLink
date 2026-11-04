@@ -232,5 +232,6 @@ class PlexCopyCatalog:
                     "video_codec": str(version.get("videoCodec") or ""),
                     "media_index": media_index,
                     "media_id": str(version.get("id") or ""),
+                    "thumb_path": str(row.get("thumb") or ""),
                 })
         return found
