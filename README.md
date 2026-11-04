@@ -2,7 +2,7 @@
 
 **The standalone HACS integration for [PowerPlay](https://github.com/The-Power-0/PowerPlay)** — a Home Assistant controller for device discovery, configurable power-on routines, and Plex playback handoff.
 
-> **Development preview.** This is *not* yet a tested production HACS integration. Current stable PowerPlay 1.2.4 does **not** implement the PowerLink v1 receiver, so complete queue transfers cannot work until the PowerPlay 1.3.0 app-side implementation is tested. Handoff launching is disabled for unverified clients by default. The `open_device` action, discovery and policy planner can be tested independently.
+> **Development preview.** This is *not* yet a tested production HACS integration. PowerPlay 1.3.1 already includes the v1 receiver; 1.3.6 improves destination handoffs when another video is already playing. Install the matching PowerLink integration and test your own devices before relying on automatic pause/transfer. Handoff launching is disabled for unverified clients by default. The `open_device` action, discovery and policy planner can be tested independently.
 
 ## What PowerLink does
 
@@ -91,7 +91,7 @@ data:
 response_variable: powerlink_transfer
 ~~~
 
-Home Assistant creates a cryptographically random **one-time capture token**, sends a `powerplay://powerlink-capture?v=1&base=...&token=...&source=...` intent to the *already playing* source Fire Stick, and awaits a fresh snapshot for at most 15 seconds. PowerPlay's active player captures its current Plex queue ID, selected Plex queue-item ID, and current playhead **only when requested**, then POSTs that tiny payload to `/api/powerlink/v1/capture/<token>`. The source is not paused, and the capture token cannot authorize any other queue or device.
+Home Assistant creates a cryptographically random **one-time capture token**, sends a `powerplay://powerlink-capture?v=1&base=...&token=...&source=...` intent to the *already playing* source Fire Stick, and awaits a fresh snapshot for at most 15 seconds. PowerPlay's active player captures its current Plex queue ID, selected Plex queue-item ID, and current playhead **only when requested**, then POSTs that tiny payload to `/api/powerlink/v1/capture/<token>`. The source continues playing throughout capture; it is paused only after the destination acknowledges that the correct episode has actually started. The capture token cannot authorize any other queue or device.
 
 Once Home Assistant validates the current item has a compatible Plex file at the destination, it executes that destination's configured power-on sequence and launch adapter. The new app fetches 32-entry windows and explicitly selects the destination's Plex media **ID and index** (1080p for HD-only devices; verified highest quality for 4K devices). It ACKs `started` only after the player reports the correct item, first frame, and seek position.
 
@@ -171,7 +171,7 @@ The receiver will handle a `powerplay://powerlink?v=1&base=<url>&token=<secret>`
 
 The response preserves the original `current_index`, `position_ms`, `shuffled`, `total` and indexed `items`. The receiver must build an **external, server-provided local queue**, not ask Plex to reshuffle or recreate a new queue. It should fetch more indexed windows as playback advances. Unavailable items are retained with `status: unavailable` and must show a recoverable playback error rather than silently jumping to another episode.
 
-After opening and seeking successfully, the receiver POSTs `{"status":"started"}` to `.../session/<token>/ack`. If it cannot play, POST `{"status":"failed"}`. HA emits `powerlink_handoff_acknowledged` with the source, destination and outcome. The source should stop **only after a verified playback-start acknowledgment**, via a separately configured automation/policy.
+After opening and seeking successfully, the receiver POSTs `{"status":"started"}` to `.../session/<token>/ack`. If it cannot play, POST `{"status":"failed"}`. HA emits `powerlink_handoff_acknowledged` with the source, destination, outcome, `source_paused` (whether the pause command was accepted) and `source_pause_error` if one occurred. **Only on `started`** does PowerLink send an idempotent PAUSE to the source (`input keyevent 127` for ADB Fire Sticks, or Home Assistant `media_player.media_pause` for bridged media players). It never toggles Play/Pause, stops playback, or powers off the source, and never pauses it on `failed` acknowledgments. `source_paused: true` means the command was sent successfully, not that HA independently measured the Fire Stick's playback state. Check the source TV on your first test.
 
 ### Security and performance boundaries
 
@@ -185,7 +185,7 @@ After opening and seeking successfully, the receiver POSTs `{"status":"started"}
 
 This repository now contains the independent **PowerLink Home Assistant integration**. The initial sources and tests were migrated from [PowerPlay staging PR #39](https://github.com/The-Power-0/PowerPlay/pull/39). Development and issues for this integration belong here; the Flutter APK is maintained separately in [PowerPlay](https://github.com/The-Power-0/PowerPlay).
 
-**Version 0.1.0 is a development preview, not a production-ready, verified handoff release.** The current stable PowerPlay 1.2.4 does not implement the required PowerLink v1 receiver; app-side work is underway on the [PowerPlay 1.3.0 development branch](https://github.com/The-Power-0/PowerPlay/tree/feature/powerlink-v1.3.0-app). Keep device `supports_protocol_v1` disabled until complete source-to-destination tests are successful.
+**Version 0.1.0 is a development preview, not a production-ready, verified handoff release.** PowerPlay v1.3.1 already contains the v1 receiver; PowerPlay v1.3.6 is the targeted destination-takeover hardening release. Keep `supports_protocol_v1` disabled on devices until that version is installed and the source pause / handoff paths are tested locally.
 
 For local checks:
 
