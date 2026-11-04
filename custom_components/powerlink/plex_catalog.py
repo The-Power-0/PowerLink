@@ -16,7 +16,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .handoff import HandoffError, from_plex_queue_response
 from .queue_collect import collect_plex_play_queue
-from .plex_queue_response import decode_plex_queue_page
+from .plex_queue_response import decode_plex_queue_page, fetch_adaptive_queue_page
 
 
 def _height(value: Any) -> int | None:
@@ -121,8 +121,14 @@ class PlexCopyCatalog:
 
         try:
             async with asyncio.timeout(45):
+                async def sized_page(center: int, window: int) -> dict[str, Any]:
+                    # Never download a giant Plex queue response. Retry the
+                    # same unchanged center with a smaller per-side window
+                    # if Plex metadata exceeds the 1.5 MB page cap.
+                    return await fetch_adaptive_queue_page(fetch_page, center, window)
+
                 container = await collect_plex_play_queue(
-                    fetch_page, play_queue_id=queue_id, selected_item_id=selected
+                    sized_page, play_queue_id=queue_id, selected_item_id=selected
                 )
         except HandoffError:
             raise

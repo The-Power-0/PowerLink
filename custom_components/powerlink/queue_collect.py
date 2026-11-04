@@ -48,7 +48,7 @@ async def collect_plex_play_queue(
     *,
     play_queue_id: int,
     selected_item_id: int,
-    max_requests: int = 160,
+    max_requests: int = 320,
 ) -> dict[str, Any]:
     """Return the complete, version-consistent Plex MediaContainer.
 
@@ -57,7 +57,9 @@ async def collect_plex_play_queue(
     """
     _positive(play_queue_id, "playQueueID")
     _positive(selected_item_id, "selected item ID")
-    first = _container(await fetch(selected_item_id, 250))
+    # Plex's `window` is *per side* of the center. 250 can yield 501
+    # verbose Plex Media records (>1.5 MB), so begin with a small window.
+    first = _container(await fetch(selected_item_id, 32))
     count = _positive(first.get("playQueueTotalCount"), "playQueueTotalCount")
     if count > MAX_QUEUE_ITEMS:
         raise HandoffError("Plex queue exceeds PowerLink's bounded limit")
@@ -79,7 +81,7 @@ async def collect_plex_play_queue(
         if requests >= max_requests:
             raise HandoffError("Plex queue reconstruction exceeded request budget")
         requests += 1
-        container = _container(await fetch(center, 120))
+        container = _container(await fetch(center, 32))
         if container.get("playQueueID") != play_queue_id:
             raise HandoffError("Plex queue ID changed during capture")
         if container.get("playQueueVersion") != version:
