@@ -15,6 +15,7 @@ from .device import DeviceSettings
 from .handoff import HandoffError, QueueSnapshot, WindowPlanner
 from .launcher import execute_wake, launch_powerplay
 from .plex_catalog import PlexCopyCatalog
+from .source_pause import pause_handoff_source
 
 
 @dataclass
@@ -151,13 +152,36 @@ class PowerLinkController:
         if session.acknowledged:
             return
         session.acknowledged = True
-        # Intentionally do not stop the source device automatically. An actual
-        # playback-start acknowledgment is the only safe point for automations
-        # to request it; a successful adb "am start" is not enough.
+        source_paused = False
+        pause_error = None
+        if status == "started":
+            # A launcher return only proves the Android intent was delivered.
+            # The PowerPlay receiver sends 'started' exclusively after the
+            # destination confirms the right item, playhead and first frame.
+            # Until then the source must continue playing. Do not stop or
+            # power off the source, and never toggle an already paused player.
+            source = self.devices.get(session.snapshot.source_device)
+            if source is None:
+                pause_error = "SourceDeviceNotRegistered"
+            else:
+                try:
+                    await pause_handoff_source(self.hass, source)
+                    source_paused = True
+                except Exception as err:
+                    # Source may remain playing if ADB/remote is unavailable.
+                    # The destination must not be rolled back because of it.
+                    pause_error = type(err).__name__
+                    self.hass.bus.async_fire("powerlink_source_pause_failed", {
+                        "source_device": session.snapshot.source_device,
+                        "destination_device": session.destination.entity_id,
+                        "reason": pause_error,
+                    })
         self.hass.bus.async_fire("powerlink_handoff_acknowledged", {
             "source_device": session.snapshot.source_device,
             "destination_device": session.destination.entity_id,
             "status": status,
+            "source_paused": source_paused,
+            "source_pause_error": pause_error,
             "queue_length": len(session.snapshot.items),
             "shuffled": session.snapshot.shuffled,
         })
