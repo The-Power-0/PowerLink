@@ -31,6 +31,7 @@ jobs:
           meta = json.loads((base / "manifest.json").read_text())
           hacs = json.loads(Path("hacs.json").read_text())
           strings = json.loads((base / "strings.json").read_text())
+          translations = json.loads((base / "translations/en.json").read_text())
           url = "https://github.com/The-Power-0/PowerLink"
           assert meta["domain"] == "powerlink"
           assert meta["version"] == "0.1.0"
@@ -41,6 +42,7 @@ jobs:
           assert hacs["name"] == "PowerLink"
           assert hacs["content_in_root"] is False
           assert strings and isinstance(strings, dict)
+          assert translations == strings, "custom integrations need a complete translations/en.json"
           assert (base / "__init__.py").exists()
           assert (base / "services.yaml").exists()
           assert Path("README.md").exists()
