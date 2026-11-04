@@ -69,11 +69,18 @@ async def execute_wake(hass: HomeAssistant, device: DeviceSettings,
                 if not hass.services.has_service(step["domain"], step["service"]):
                     raise LaunchError(f"Required HA action missing: {step['domain']}.{step['service']}")
                 data = dict(step["data"])
-                data.setdefault("entity_id", entity_id)
+                # Direct script services await completion and propagate failure.
+                # They do not accept a destination media_player entity_id.
+                direct_script = (
+                    step["domain"] == "script"
+                    and step["service"] not in ("turn_on", "turn_off", "toggle", "reload")
+                )
+                if not direct_script:
+                    data.setdefault("entity_id", entity_id)
                 await asyncio.wait_for(
                     hass.services.async_call(step["domain"], step["service"], data,
                                              blocking=True, context=context),
-                    timeout=30,
+                    timeout=step.get("timeout", 30),
                 )
         except Exception as err:
             if step.get("continue_on_error") is True:

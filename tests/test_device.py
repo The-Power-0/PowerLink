@@ -69,6 +69,19 @@ class DeviceSettingsTests(unittest.TestCase):
         self.assertEqual(steps[0]["data"]["entity_id"], "switch.tv_power")
         self.assertEqual(steps[0]["when"]["states"], ["off", "standby"])
 
+    def test_bounded_script_timeout_for_protected_power(self):
+        result = device.validate_steps([{
+            "kind": "service", "domain": "script",
+            "service": "powerlink_wake_game_room",
+            "entity_id": "script.powerlink_wake_game_room", "timeout": 600,
+        }])
+        self.assertEqual(result[0]["timeout"], 600.0)
+        with self.assertRaises(handoff.HandoffError):
+            device.validate_steps([{
+                "kind": "service", "domain": "script",
+                "service": "powerlink_wake_game_room", "timeout": 601,
+            }])
+
     def test_bounds_wake_steps(self):
         with self.assertRaises(handoff.HandoffError):
             device.validate_steps([{"kind": "delay", "seconds": 120}])
