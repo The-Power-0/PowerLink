@@ -104,9 +104,17 @@ async def launch_powerplay(hass: HomeAssistant, device: DeviceSettings,
                 blocking=True, context=context,
             )
         else:
+            # Fire TV's Android Debug Bridge media_player does not reliably
+            # interpret Android package IDs as selectable HA sources. Launch
+            # the package using the same Android launcher command supported
+            # by existing HA Fire TV automations and verified manually.
+            command = (
+                "monkey -p " + shlex.quote(APP_ID)
+                + " -c android.intent.category.LAUNCHER 1"
+            )
             await hass.services.async_call(
-                "media_player", "select_source",
-                {"entity_id": device.entity_id, "source": APP_ID},
+                "androidtv", "adb_command",
+                {"entity_id": device.entity_id, "command": command},
                 blocking=True, context=context,
             )
     else:
