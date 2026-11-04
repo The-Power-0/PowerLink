@@ -89,5 +89,100 @@
         }
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Manage PowerLink devices",
+        "menu_options": {
+          "discover_devices": "Find Fire TV / Android TV devices",
+          "manual_device": "Add a device manually",
+          "edit_device": "Edit a registered device",
+          "advanced_wake": "Edit advanced wake routine",
+          "remove_device": "Remove a device"
+        },
+        "menu_option_descriptions": {
+          "discover_devices": "Find media players already available in Home Assistant; no network scan or new ADB connection.",
+          "manual_device": "Choose another media player or a custom remote bridge.",
+          "edit_device": "Update resolution, quality, launch method, URL or power-on behavior.",
+          "advanced_wake": "Edit a multi-step wake routine in the object editor.",
+          "remove_device": "Unregister a device from PowerLink only."
+        }
+      },
+      "discover_devices": {
+        "title": "Discovered Home Assistant devices",
+        "description": "Choose an existing Android TV / Fire TV media player to add. Devices already registered with PowerLink are hidden.",
+        "data": {
+          "entity_id": "Device"
+        }
+      },
+      "manual_device": {
+        "title": "Add device manually",
+        "description": "Choose a media_player or remote entity already set up in Home Assistant. Remote entities generally require a custom launch script.",
+        "data": {
+          "entity_id": "Home Assistant entity"
+        }
+      },
+      "edit_device": {
+        "title": "Choose a device to edit",
+        "data": {
+          "entity_id": "Registered device"
+        }
+      },
+      "device_settings": {
+        "title": "Device settings",
+        "description": "Configure {device}. PowerLink does not automatically verify display resolution or PowerPlay protocol support. Keep v1 protocol disabled until PowerPlay 1.3.0+ has been tested on this device. For complex power-on steps, use the advanced wake editor.",
+        "data": {
+          "name": "Device name",
+          "max_height": "Maximum playback resolution",
+          "prefer_highest_quality": "Prefer highest compatible quality",
+          "launch_method": "Launch PowerPlay using",
+          "launch_script": "Launch script (only if using a script)",
+          "endpoint_base_url": "Override Home Assistant URL (optional)",
+          "supports_protocol_v1": "Verified PowerPlay 1.3.0+ handoff receiver",
+          "wake_mode": "Power-on routine",
+          "wake_script": "Wake script (only if using a script)"
+        }
+      },
+      "advanced_wake": {
+        "title": "Choose a device for advanced wake editing",
+        "data": {
+          "entity_id": "Registered device"
+        }
+      },
+      "wake_steps": {
+        "title": "Advanced wake routine",
+        "description": "Edit the ordered wake_steps list for {device}. Each step can be a Home Assistant service, delay, or wait_state operation. Validation and time limits apply; an empty list disables wake steps.",
+        "data": {
+          "wake_steps": "Wake steps"
+        }
+      },
+      "remove_device": {
+        "title": "Select device to unregister",
+        "data": {
+          "entity_id": "Registered device"
+        }
+      },
+      "confirm_remove": {
+        "title": "Confirm device removal",
+        "description": "Unregister {device} from PowerLink? This does not delete the Home Assistant device or entity and can be reversed by adding it again.",
+        "data": {
+          "confirm": "Yes, unregister this device"
+        }
+      }
+    },
+    "error": {
+      "invalid_device": "Check the device settings, URL, launch script and wake routine.",
+      "invalid_wake_steps": "Invalid wake routine. Use a list of supported service, delay or wait_state steps.",
+      "device_unavailable": "This Home Assistant entity is no longer available.",
+      "already_registered": "This device is already registered with PowerLink.",
+      "confirm_required": "Check the confirmation box before unregistering the device."
+    },
+    "abort": {
+      "controller_not_ready": "PowerLink is not loaded. Reload the integration and try again.",
+      "no_devices_found": "No new compatible Fire TV / Android TV entities were found. Use Add manually to choose an existing entity.",
+      "no_registered_devices": "Register a device first.",
+      "device_not_selected": "No valid device was selected."
+    }
   }
 }

@@ -69,6 +69,16 @@ class PowerLinkController:
             })
         return settings
 
+    async def remove_device(self, entity_id: str) -> None:
+        """Unregister a device; never remove its Home Assistant entity."""
+        async with self._lock:
+            if entity_id not in self.devices:
+                raise HandoffError(f"Unregistered device: {entity_id}")
+            del self.devices[entity_id]
+            await self._store.async_save({
+                "devices": [dev.as_dict() for dev in self.devices.values()],
+            })
+
     def device(self, entity_id: str) -> DeviceSettings:
         device = self.devices.get(entity_id)
         if device is None:
