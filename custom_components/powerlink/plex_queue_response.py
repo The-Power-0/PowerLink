@@ -12,6 +12,33 @@ from .handoff import HandoffError
 MAX_QUEUE_PAGE_BYTES = 1_500_000
 
 
+class PlexQueuePageTooLarge(HandoffError):
+    """A single Plex response was too large; retry with a smaller window."""
+
+
+async def fetch_adaptive_queue_page(fetch, center: int, window: int) -> dict:
+    """Retry oversized queue responses with progressively smaller windows.
+
+    Plex `window` means items on EACH side of `center`, not the total
+    response count. Keep the per-response memory cap and fail closed when
+    even one centered item exceeds it. No queue mutation or re-shuffle.
+    """
+    if type(window) is not int or window < 1:
+        raise ValueError("Plex queue window must be a positive integer")
+    while True:
+        try:
+            return await fetch(center, window)
+        except PlexQueuePageTooLarge as err:
+            if window == 1:
+                raise HandoffError(
+                    "Plex returned more than 1.5 MB even for the smallest "
+                    "queue window. The server may be ignoring the requested "
+                    "window, or an individual item has unusually large "
+                    "metadata. Source playback is unchanged."
+                ) from err
+            window = max(1, window // 2)
+
+
 async def decode_plex_queue_page(response) -> dict:
     """Parse a bounded JSON queue response; classify common PMS failures."""
     status = response.status
@@ -40,7 +67,7 @@ async def decode_plex_queue_page(response) -> dict:
     async for chunk in response.content.iter_chunked(65536):
         body.extend(chunk)
         if len(body) > MAX_QUEUE_PAGE_BYTES:
-            raise HandoffError(
+            raise PlexQueuePageTooLarge(
                 "Plex play queue window exceeded the 1.5 MB safety limit"
             )
     try:
