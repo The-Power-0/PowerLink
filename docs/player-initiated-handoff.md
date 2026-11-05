@@ -23,6 +23,7 @@
 - **Code rejected**: issue a new code for that exact registered source device; enter it within three minutes. Multiple wrong guesses are rate-limited.
 - **Missing destinations**: configure and verify the other HA devices. The paired source is intentionally excluded.
 - **Missing queue**: launch playback from a full Plex shuffle or sequential queue first. If a previously imported PowerLink manifest has expired, start a fresh queue.
+- **Long power-on routine**: PowerPlay holds the explicit handoff request open for up to 11 minutes to accommodate a protected Home Assistant wake script that can take 10 minutes. The picker shows progress and keeps source playback running. Multi-step routines can take longer; if a request times out, check the destination before retrying because a timed-out HTTP response does not prove Home Assistant cancelled the wake routine.
 - **Source failed to pause**: listen for the Home Assistant event `powerlink_handoff_acknowledged` and inspect its `source_paused` and `source_pause_error` fields. A successful pause command is not an independent measurement of video state.
 - The per-device token is saved encrypted via Android Keystore and stored only as a SHA-256 digest in HA. A new pairing rotates it; removing the registered HA device revokes it. Keep local HTTP on trusted networks, or use HTTPS for routed/public access.
 
