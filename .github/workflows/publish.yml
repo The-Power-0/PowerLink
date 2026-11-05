@@ -39,7 +39,7 @@ jobs:
           assert hacs['content_in_root'] is False
           assert Path('custom_components/powerlink/__init__.py').is_file()
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write('tag=v' + version + '\\n')
+              output.write('tag=v' + version + '\n')
           PY
       - name: Validate integration before publication
         run: |
