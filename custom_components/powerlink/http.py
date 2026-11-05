@@ -110,11 +110,15 @@ async def _read_bounded_json(request: web.Request, limit: int) -> dict:
         raise web.HTTPRequestEntityTooLarge(
             max_size=limit, actual_size=request.content_length
         )
-    data = await request.content.read(limit + 1)
-    if len(data) > limit:
-        raise web.HTTPRequestEntityTooLarge(
-            max_size=limit, actual_size=len(data)
-        )
+    # StreamReader.read(n) can return an incomplete JSON chunk. Consume
+    # until EOF while retaining the same hard size cap used by old endpoints.
+    data = bytearray()
+    async for chunk in request.content.iter_chunked(65536):
+        data.extend(chunk)
+        if len(data) > limit:
+            raise web.HTTPRequestEntityTooLarge(
+                max_size=limit, actual_size=len(data)
+            )
     try:
         parsed = json.loads(data)
     except (ValueError, UnicodeError) as err:
