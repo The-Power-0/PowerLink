@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import secrets
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping
 from urllib.parse import urlencode
 
@@ -16,6 +16,7 @@ from .handoff import HandoffError, QueueSnapshot, WindowPlanner
 from .launcher import execute_wake, launch_powerplay
 from .plex_catalog import PlexCopyCatalog
 from .source_pause import pause_handoff_source
+from .app_pairing import AppPairings
 
 
 @dataclass
@@ -44,6 +45,7 @@ class PowerLinkController:
         # One-shot requests only; no socket listener, background timer or
         # remote polling is installed on any Fire Stick.
         self._captures: dict[str, PendingCapture] = {}
+        self.app_pairings = AppPairings()
         self._lock = asyncio.Lock()
         plex_url, plex_token = data.get("plex_base_url"), data.get("plex_token")
         self.plex = PlexCopyCatalog(
@@ -52,6 +54,7 @@ class PowerLinkController:
 
     async def async_load(self) -> None:
         saved = await self._store.async_load() or {}
+        self.app_pairings = AppPairings(saved.get("paired_tokens", {}))
         for raw in saved.get("devices", []):
             try:
                 settings = DeviceSettings.parse(raw)
@@ -59,15 +62,105 @@ class PowerLinkController:
             except HandoffError:
                 continue
 
+    async def _save_registry(self) -> None:
+        """HA Store persists only token digests, never credentials or codes."""
+        await self._store.async_save({
+            "devices": [dev.as_dict() for dev in self.devices.values()],
+            "paired_tokens": dict(self.app_pairings.token_digests),
+        })
+
+    def issue_app_pairing(self, source: str) -> str:
+        device = self.device(source)
+        if not device.supports_protocol_v1:
+            raise HandoffError("Enable verified PowerLink v1 before pairing")
+        return self.app_pairings.issue(source)
+
+    async def redeem_app_pairing(self, code: object, client: str) -> dict[str, str]:
+        async with self._lock:
+            source, token = self.app_pairings.redeem(code, client)
+            if source not in self.devices:
+                self.app_pairings.revoke(source)
+                raise HandoffError("Device no longer registered")
+            await self._save_registry()
+            return {
+                "source_device": source,
+                "source_name": self.devices[source].name,
+                "token": token,
+                "protocol": 2,
+            }
+
+    def authorized_app(self, source: str, token: str) -> bool:
+        return (source in self.devices
+                and self.devices[source].supports_protocol_v1
+                and self.app_pairings.authenticate(source, token))
+
+    def discover_app_destinations(self, source: str) -> dict[str, Any]:
+        self.device(source)
+        targets = []
+        for entity_id, device in sorted(
+            self.devices.items(), key=lambda pair: pair[1].name.casefold()
+        ):
+            if entity_id == source or not device.supports_protocol_v1:
+                continue
+            state = self.hass.states.get(entity_id)
+            targets.append({
+                "entity_id": entity_id,
+                "name": device.name,
+                "max_height": device.max_height,
+                "available": state is not None
+                and state.state not in ("unavailable", "unknown"),
+            })
+        return {
+            "protocol": 2, "source_device": source,
+            "source_name": self.devices[source].name, "destinations": targets,
+        }
+
+    async def app_handoff(self, source: str, destination: str,
+                          snapshot: Mapping[str, Any], context) -> dict[str, Any]:
+        """Source-app-initiated handoff; no source ADB capture intent needed."""
+        if source == destination:
+            raise HandoffError("Choose another destination")
+        if not self.device(source).supports_protocol_v1:
+            raise HandoffError("Source has not been verified for PowerLink")
+        if not isinstance(snapshot, Mapping) or snapshot.get("schema") != 1:
+            raise HandoffError("Invalid source queue snapshot")
+        if snapshot.get("source_device") != source:
+            raise HandoffError("Snapshot did not originate from paired device")
+        source_reference = snapshot.get("queue_source")
+        if isinstance(source_reference, Mapping) and source_reference.get("type") == "powerlink_transfer":
+            token = source_reference.get("session_token")
+            previous = self._session(token)
+            if not previous.acknowledged or previous.destination.entity_id != source:
+                raise HandoffError("Imported queue does not belong to paired playing source")
+            cursor = snapshot.get("current_index")
+            position = snapshot.get("position_ms")
+            if type(cursor) is not int or not 0 <= cursor < len(previous.snapshot.items):
+                raise HandoffError("Imported queue index is invalid")
+            if type(position) is not int or not 0 <= position <= 86_400_000:
+                raise HandoffError("Imported queue playhead is invalid")
+            if snapshot.get("profile_id") != previous.snapshot.profile_id:
+                raise HandoffError("Imported Plex Home profile differs from the original queue")
+            # Reuse HA's authoritative full immutable queue instead of
+            # transmitting/re-serializing 5000 items from the Fire Stick.
+            snapshot = replace(
+                previous.snapshot, source_device=source,
+                current_index=cursor, position_ms=position,
+            )
+        result = await self.handoff(snapshot, destination, context)
+        # Do not return a destination bearer URL or token to the source.
+        return {
+            "accepted": True, "destination": result["destination"],
+            "queue_length": result["queue_length"],
+            "message": "Destination launch requested; source pauses after verified playback",
+        }
+
     async def register_device(self, config: Mapping[str, Any]) -> DeviceSettings:
         settings = DeviceSettings.parse(config)
         if self.hass.states.get(settings.entity_id) is None:
             raise HandoffError(f"No Home Assistant entity: {settings.entity_id}")
         async with self._lock:
             self.devices[settings.entity_id] = settings
-            await self._store.async_save({
-                "devices": [dev.as_dict() for dev in self.devices.values()],
-            })
+            await self._save_registry()
         return settings
 
     async def remove_device(self, entity_id: str) -> None:
@@ -76,9 +169,8 @@ class PowerLinkController:
             if entity_id not in self.devices:
                 raise HandoffError(f"Unregistered device: {entity_id}")
             del self.devices[entity_id]
-            await self._store.async_save({
-                "devices": [dev.as_dict() for dev in self.devices.values()],
-            })
+            self.app_pairings.revoke(entity_id)
+            await self._save_registry()
 
     def device(self, entity_id: str) -> DeviceSettings:
         device = self.devices.get(entity_id)
@@ -94,7 +186,9 @@ class PowerLinkController:
 
     async def prepare(self, raw: Mapping[str, Any], target: str) -> dict[str, Any]:
         device = self.device(target)
-        if isinstance(raw.get("queue_source"), Mapping):
+        if isinstance(raw, QueueSnapshot):
+            snapshot = raw
+        elif isinstance(raw.get("queue_source"), Mapping):
             if self.plex is None:
                 raise HandoffError("Configure Plex URL/token for server-side queue capture")
             snapshot = await self.plex.snapshot_from_plex_queue(raw)

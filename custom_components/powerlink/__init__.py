@@ -9,7 +9,10 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
 from .controller import PowerLinkController
-from .http import PowerLinkSessionView, PowerLinkAcknowledgmentView, PowerLinkCaptureView
+from .http import (
+    PowerLinkSessionView, PowerLinkAcknowledgmentView, PowerLinkCaptureView,
+    PowerLinkAppPairView, PowerLinkAppDevicesView, PowerLinkAppHandoffView,
+)
 from .services import async_setup_services
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -20,6 +23,9 @@ async def async_setup(hass, config) -> bool:
     hass.http.register_view(PowerLinkSessionView())
     hass.http.register_view(PowerLinkAcknowledgmentView())
     hass.http.register_view(PowerLinkCaptureView())
+    hass.http.register_view(PowerLinkAppPairView())
+    hass.http.register_view(PowerLinkAppDevicesView())
+    hass.http.register_view(PowerLinkAppHandoffView())
     return True
 
 

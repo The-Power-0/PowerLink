@@ -2,7 +2,7 @@
 
 **The standalone HACS integration for [PowerPlay](https://github.com/The-Power-0/PowerPlay)** — a Home Assistant controller for device discovery, configurable power-on routines, and Plex playback handoff.
 
-> **Development preview.** This is *not* yet a tested production HACS integration. Current stable PowerPlay 1.2.4 does **not** implement the PowerLink v1 receiver, so complete queue transfers cannot work until the PowerPlay 1.3.0 app-side implementation is tested. Handoff launching is disabled for unverified clients by default. The `open_device` action, discovery and policy planner can be tested independently.
+> **Release compatibility.** PowerPlay **1.3.6** includes the tested Home Assistant-initiated PowerLink v1 handoff path. This **PowerLink 0.2.0 development PR** adds one-time pairing and player-initiated handoff for the separate **PowerPlay 1.3.7 development PR**. Neither new feature is part of a published 1.3.7 APK yet. Keep the receiver verification toggle disabled on any Fire Stick that has not successfully played a PowerLink transfer.
 
 ## What PowerLink does
 
@@ -71,13 +71,24 @@ Each device's wake steps are optional. For displays requiring CEC, smart plugs, 
 
 For a remote/second network, choose `launch_method: script` and `launch_script: script.my_fire_tv_handoff`. The script receives `powerlink_uri` as a variable and can forward it through an existing secure VPN, broker, remote HA instance or service. That transport must be configured by the user; it isn't bundled.
 
-The existing 1.2.4 app can be opened with:
+The current PowerPlay 1.3.6 app can be opened without changing playback with:
 
 ~~~yaml
 action: powerlink.open_device
 data:
   entity_id: media_player.living_room_fire_tv_stick_4k_plus
 ~~~
+
+### Handoff from the PowerPlay player (0.2.0 / 1.3.7 preview)
+
+PowerPlay 1.3.7 adds a dedicated **Settings → PowerLink** page on supported Fire TV devices, plus a PowerLink cast button in the Plex player controls. Home Assistant owns registered device discovery, device policy, wake routines and queue handoff; the Fire Stick does not run a LAN scan or background polling service.
+
+1. In **Settings → Devices & services → PowerLink → Configure**, register each Fire Stick and confirm its existing v1 handoff works. Enable **Verified PowerLink v1** on those devices only.
+2. Choose **Pair PowerPlay player**, select the Fire Stick, and obtain its nine-digit, single-use pairing code (valid for three minutes).
+3. On that Fire Stick, open **PowerPlay → Settings → PowerLink**, enter your reachable Home Assistant URL and the code, then pair. Refresh to view other verified, registered devices.
+4. During Plex playback, highlight the **PowerLink** player icon using the D-pad, choose another room, and allow Home Assistant to prepare, wake and start the destination. The original device is paused only after the destination acknowledges the correct playback.
+
+Each player has a separate scoped credential encrypted using Android Keystore, not a long-lived Home Assistant administrator token. Device handoffs preserve the exact order and cursor for both Plex shuffled and sequential queues. Long protected wake routines are supported; if a request times out, inspect the destination before retrying because the wake routine may still be running. See [player-initiated handoff setup and troubleshooting](docs/player-initiated-handoff.md).
 
 ### One-tap on-demand handoff
 
@@ -185,7 +196,7 @@ After opening and seeking successfully, the receiver POSTs `{"status":"started"}
 
 This repository now contains the independent **PowerLink Home Assistant integration**. The initial sources and tests were migrated from [PowerPlay staging PR #39](https://github.com/The-Power-0/PowerPlay/pull/39). Development and issues for this integration belong here; the Flutter APK is maintained separately in [PowerPlay](https://github.com/The-Power-0/PowerPlay).
 
-**Version 0.1.0 is a development preview, not a production-ready, verified handoff release.** The current stable PowerPlay 1.2.4 does not implement the required PowerLink v1 receiver; app-side work is underway on the [PowerPlay 1.3.0 development branch](https://github.com/The-Power-0/PowerPlay/tree/feature/powerlink-v1.3.0-app). Keep device `supports_protocol_v1` disabled until complete source-to-destination tests are successful.
+**0.1.0** established the Home Assistant-side controller and Home Assistant-initiated handoff; **0.2.0** is currently in [PowerLink PR #11](https://github.com/The-Power-0/PowerLink/pull/11), paired with [PowerPlay 1.3.7 PR #48](https://github.com/The-Power-0/PowerPlay/pull/48). PowerPlay **1.3.6** is the existing stable baseline. Automated integration and Flutter tests are not substitutes for pairing, D-pad navigation, and 4K↔1080p end-to-end tests on physical Fire Sticks. Both PRs remain drafts until those checks are completed.
 
 For local checks:
 

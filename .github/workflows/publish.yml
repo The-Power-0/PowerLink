@@ -1,0 +1,73 @@
+name: Publish PowerLink HACS integration
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'custom_components/powerlink/manifest.json'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: powerlink-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify current version and HACS layout
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          version = json.loads(Path('custom_components/powerlink/manifest.json').read_text())['version']
+          assert version == '0.2.0', 'Only the reviewed PowerLink 0.2.0 is approved for this publication'
+          hacs = json.loads(Path('hacs.json').read_text())
+          assert hacs['content_in_root'] is False
+          assert Path('custom_components/powerlink/__init__.py').is_file()
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('tag=v' + version + '\n')
+          PY
+      - name: Validate integration before publication
+        run: |
+          python -m compileall -q custom_components/powerlink tests
+          python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Publish 0.2.0 tag and release for HACS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "PowerLink $RELEASE_TAG already published; no overwrite"
+            exit 0
+          fi
+          cat > /tmp/powerlink-release-notes.md <<'EOF'
+          # PowerLink 0.2.0 — PowerPlay in-player handoff
+
+          - Pair individual Fire Sticks from Home Assistant's PowerLink Configure UI with one-time nine-digit codes.
+          - Discover verified destinations from PowerPlay Settings → PowerLink, without LAN scanning or administrator access tokens.
+          - Initiate exact Plex playback handoff directly from the Fire TV player using the PowerLink icon.
+          - Preserve shuffle order, selected item, playback offset and 1080p/4K mapping through Home Assistant.
+          - Pause the source only after a verified destination playback acknowledgement; support repeated handoffs of a retained imported queue.
+          - Continue supporting existing Home Assistant-initiated handoff actions from PowerPlay 1.3.6.
+
+          **Companion required:** [PowerPlay 1.3.7](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v1.3.7) for in-player controls. Install via HACS custom repository, then reload/restart Home Assistant. Physical D-pad/pairing and mixed-resolution transfers still require real-device validation.
+          EOF
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --latest --title 'PowerLink v0.2.0 — Fire TV player handoff' \
+            --notes-file /tmp/powerlink-release-notes.md
