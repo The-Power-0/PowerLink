@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import secrets
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping
 from urllib.parse import urlencode
 
@@ -126,6 +126,26 @@ class PowerLinkController:
             raise HandoffError("Invalid source queue snapshot")
         if snapshot.get("source_device") != source:
             raise HandoffError("Snapshot did not originate from paired device")
+        source_reference = snapshot.get("queue_source")
+        if isinstance(source_reference, Mapping) and source_reference.get("type") == "powerlink_transfer":
+            token = source_reference.get("session_token")
+            previous = self._session(token)
+            if not previous.acknowledged or previous.destination.entity_id != source:
+                raise HandoffError("Imported queue does not belong to paired playing source")
+            cursor = snapshot.get("current_index")
+            position = snapshot.get("position_ms")
+            if type(cursor) is not int or not 0 <= cursor < len(previous.snapshot.items):
+                raise HandoffError("Imported queue index is invalid")
+            if type(position) is not int or not 0 <= position <= 86_400_000:
+                raise HandoffError("Imported queue playhead is invalid")
+            if snapshot.get("profile_id") != previous.snapshot.profile_id:
+                raise HandoffError("Imported Plex Home profile differs from the original queue")
+            # Reuse HA's authoritative full immutable queue instead of
+            # transmitting/re-serializing 5000 items from the Fire Stick.
+            snapshot = replace(
+                previous.snapshot, source_device=source,
+                current_index=cursor, position_ms=position,
+            )
         result = await self.handoff(snapshot, destination, context)
         # Do not return a destination bearer URL or token to the source.
         return {
@@ -166,7 +186,9 @@ class PowerLinkController:
 
     async def prepare(self, raw: Mapping[str, Any], target: str) -> dict[str, Any]:
         device = self.device(target)
-        if isinstance(raw.get("queue_source"), Mapping):
+        if isinstance(raw, QueueSnapshot):
+            snapshot = raw
+        elif isinstance(raw.get("queue_source"), Mapping):
             if self.plex is None:
                 raise HandoffError("Configure Plex URL/token for server-side queue capture")
             snapshot = await self.plex.snapshot_from_plex_queue(raw)
