@@ -91,8 +91,44 @@ class PowerLinkOptionsFlow(config_entries.OptionsFlow):
             return self.async_abort(reason="controller_not_ready")
         steps = ["discover_devices", "manual_device"]
         if self._controller.devices:
+            steps.append("pair_player")
+        if self._controller.devices:
             steps.extend(["edit_device", "advanced_wake", "remove_device"])
         return self.async_show_menu(step_id="init", menu_options=steps)
+
+    async def async_step_pair_player(self, user_input=None):
+        """HA-admin-gated code for one pre-registered, verified Fire TV."""
+        choices = {
+            entity_id: label
+            for entity_id, label in self._device_options().items()
+            if self._controller.devices[entity_id].supports_protocol_v1
+        }
+        if not choices:
+            return self.async_abort(reason="no_verified_devices")
+        if user_input is not None:
+            source = user_input.get("entity_id")
+            if source not in choices:
+                return self.async_abort(reason="device_not_selected")
+            code = self._controller.issue_app_pairing(source)
+            self._pairing_display_code = code
+            self._pairing_display_name = choices[source]
+            return await self.async_step_show_pair_code()
+        return self.async_show_form(
+            step_id="pair_player",
+            data_schema=vol.Schema({vol.Required("entity_id"): vol.In(choices)}),
+        )
+
+    async def async_step_show_pair_code(self, user_input=None):
+        if user_input is not None:
+            return self._finish()
+        return self.async_show_form(
+            step_id="show_pair_code",
+            description_placeholders={
+                "code": self._pairing_display_code,
+                "device": self._pairing_display_name,
+            },
+            data_schema=vol.Schema({}),
+        )
 
     async def async_step_discover_devices(self, user_input=None):
         """Discover *existing HA entities*, without additional LAN scanning."""
