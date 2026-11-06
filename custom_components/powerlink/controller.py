@@ -13,7 +13,7 @@ from homeassistant.helpers.storage import Store
 from .const import DOMAIN, STORAGE_VERSION, STORAGE_KEY, SESSION_TTL_SECONDS
 from .device import DeviceSettings
 from .handoff import HandoffError, QueueSnapshot, WindowPlanner
-from .launcher import execute_wake, launch_powerplay
+from .launcher import execute_wake, launch_powerplay, wake_destination_screen_for_handoff
 from .plex_catalog import PlexCopyCatalog
 from .source_pause import pause_handoff_source
 from .app_pairing import AppPairings
@@ -297,6 +297,11 @@ class PowerLinkController:
         # Plan and verify the actual current item BEFORE waking/moving focus.
         prepared = await self.prepare(raw, target)
         await execute_wake(self.hass, device, context)
+        # A powered-on Fire TV may still be displaying its ambient screen.
+        # HOME dismisses that surface without force-stopping PowerPlay, then
+        # the deep link brings the receiving player forward. Never run this
+        # for the source: it may still be playing until the destination ACK.
+        await wake_destination_screen_for_handoff(self.hass, device, context)
         await launch_powerplay(self.hass, device, context, uri=prepared["deep_link"])
         # The receiver must explicitly acknowledge playback via the relay
         # before any source-stopping action may be taken by HA automations.
