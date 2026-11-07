@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/The-Power-0/PowerPlay/main/docs/artwork/powerplay-icon.webp" alt="PowerPlay companion artwork" width="116" />
+<img src="branding/powerlink-banner.svg" alt="PowerLink cyan-and-blue logo" width="640" />
 
 # PowerLink
 
@@ -42,8 +42,8 @@ PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. 
 
 | Component | Version |
 | --- | --- |
-| **PowerLink HACS integration** | **[0.4.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.4.0)** (dashboard backend) |
-| **PowerPlay Fire TV app** | **[1.4.0](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v1.4.0)** or later for PowerShuffle |
+| **PowerLink HACS integration** | **1.0.0 release candidate** (unpublished branding milestone; 0.4.0 is current stable) |
+| **PowerPlay Fire TV app** | **2.0.0 release candidate**, with stable 1.4.0+ remaining compatible |
 | **Home Assistant** | 2025.12.0 or later |
 | **Deployment** | Home Assistant Container is supported — no Supervisor add-on store required |
 
@@ -326,6 +326,8 @@ Normal device and PowerShuffle setup is available through the UI. The actions ab
 - **Failures stay recoverable.** Home Assistant does not count an episode as completed simply because it was queued, and the existing source is not deliberately paused before the destination acknowledges playback.
 
 PowerLink is a controller, **not a Plex server, a remote-access tunnel, or an ADB replacement**.
+
+See [PowerLink brand assets and usage](branding/README.md) for light/dark and monochrome variants.
 
 ## Releases and development
 

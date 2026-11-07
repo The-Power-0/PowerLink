@@ -34,7 +34,7 @@ jobs:
           translations = json.loads((base / "translations/en.json").read_text())
           url = "https://github.com/The-Power-0/PowerLink"
           assert meta["domain"] == "powerlink"
-          assert meta["version"] == "0.4.0"
+          assert meta["version"] == "1.0.0"
           assert meta["config_flow"] is True
           assert meta["documentation"] == url
           assert meta["issue_tracker"] == url + "/issues"
@@ -46,6 +46,9 @@ jobs:
           assert (base / "__init__.py").exists()
           assert (base / "services.yaml").exists()
           assert Path("README.md").exists()
+          for image in ("icon.png", "icon@2x.png", "dark_icon.png", "dark_icon@2x.png", "logo.png", "logo@2x.png", "dark_logo.png", "dark_logo@2x.png"):
+              data=(base / "brand" / image).read_bytes()
+              assert data.startswith(bytes.fromhex("89504e470d0a1a0a")), image
           assert Path("LICENSE").exists()
           assert not Path("powerlink/custom_components").exists()
           PY
