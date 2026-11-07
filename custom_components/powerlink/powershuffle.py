@@ -64,12 +64,14 @@ def _parse_episode(raw: object, show_guid: str) -> tuple[str, dict]:
         "show_title": str(raw.get("show_title") or "")[:300],
         "copies": copies,
     }
-    QueueSnapshot.parse({
+    clean = QueueSnapshot.parse({
         "schema": 1, "items": [entry], "current_index": 0,
         "position_ms": 0, "shuffled": True, "source_device": "inventory",
         "profile_id": "inventory", "context_key": "",
     })
-    return key, entry
+    # The snapshot parser bounds every field, including nested Plex copies.
+    # Persist only its normalized values, never raw client-supplied metadata.
+    return key, clean.items[0]
 
 
 class PowerShuffleManager:
