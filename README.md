@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/The-Power-0/PowerPlay/main/docs/artwork/powerplay-icon.webp" alt="PowerPlay companion artwork" width="116" />
+<img src="assets/brand/powerlink-banner.svg" alt="PowerLink logo" width="720" />
 
 # PowerLink
 
@@ -42,8 +42,8 @@ PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. 
 
 | Component | Version |
 | --- | --- |
-| **PowerLink HACS integration** | **[0.4.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.4.0)** (dashboard backend) |
-| **PowerPlay Fire TV app** | **[1.4.0](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v1.4.0)** or later for PowerShuffle |
+| **PowerLink HACS integration** | **[1.0.0](https://github.com/The-Power-0/PowerLink/releases/tag/v1.0.0)** — refreshed brand and integration milestone |
+| **PowerPlay Fire TV app** | **[2.0.0](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v2.0.0)**; existing 1.4.0+ PowerShuffle compatibility remains |
 | **Home Assistant** | 2025.12.0 or later |
 | **Deployment** | Home Assistant Container is supported — no Supervisor add-on store required |
 
@@ -331,7 +331,8 @@ PowerLink is a controller, **not a Plex server, a remote-access tunnel, or an AD
 
 | Version | Milestone |
 | --- | --- |
-| **[0.4.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.4.0)** | **Dashboard backend:** authenticated WebSocket master catalogue, session status, on-demand episode history and cached Plex posters. No extra Fire TV work. |
+| **[1.0.0](https://github.com/The-Power-0/PowerLink/releases/tag/v1.0.0)** | **Brand launch:** official cyan-blue link/bolt identity, light/dark Home Assistant icons and coordinated PowerPlay design; no change to device pairing or queue APIs. |
+| [0.4.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.4.0) | **Dashboard backend:** authenticated WebSocket master catalogue, session status, on-demand episode history and cached Plex posters. No extra Fire TV work. |
 | [0.3.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.1) | **Home Assistant launch:** start an existing PowerShuffle rotation directly from a dashboard, with safe receiver handoffs and a library summary sensor. |
 | [0.3.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.0) | **PowerShuffle**: persistent per-show/profile history, two skip choices, cycles, sensors, configurable global settings and handoff ownership. |
 | [0.2.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.1) | Destination wake and screensaver-dismiss reliability. |
