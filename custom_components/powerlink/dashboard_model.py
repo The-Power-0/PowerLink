@@ -85,3 +85,31 @@ def dashboard_show(state: Mapping, now: float, summary: Mapping) -> dict:
         "last_activity": state.get("last_activity", 0),
         "last_heartbeat": state.get("last_heartbeat", 0),
     }
+
+
+def apply_transfer_status(shows: list[dict], transfers: object, now_monotonic: float) -> None:
+    """Overlay *unacknowledged* live handoffs, without touching master state.
+
+    This reads only the relay operations PowerLink already knows about.
+    Long-lived relay capabilities are not themselves proof of playback:
+    only unacknowledged transfers younger than 12 minutes are displayed.
+    """
+    for transfer in transfers:
+        if transfer.acknowledged or not 0 <= now_monotonic - transfer.created_at <= 720:
+            continue
+        snapshot = transfer.snapshot
+        if not snapshot.source_device or not snapshot.context_key.startswith("powershuffle:"):
+            continue
+        if not snapshot.items:
+            continue
+        first = snapshot.items[0]
+        for show in shows:
+            if (
+                show["profile_id"] == snapshot.profile_id
+                and show["show_guid"] == first.get("show_guid")
+                and show["server_id"] == first.get("server_id")
+                and show["owner"] == snapshot.source_device
+            ):
+                show["session_status"] = "transferring"
+                show["pending_destination"] = transfer.destination.entity_id
+                break
