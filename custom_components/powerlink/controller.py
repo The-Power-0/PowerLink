@@ -187,7 +187,10 @@ class PowerLinkController:
             if now - item.created_at >= SESSION_TTL_SECONDS:
                 del self._transfers[key]
 
-    async def prepare(self, raw: Mapping[str, Any], target: str) -> dict[str, Any]:
+    async def prepare(
+        self, raw: Mapping[str, Any], target: str,
+        *, trusted_powershuffle_launch: bool = False,
+    ) -> dict[str, Any]:
         device = self.device(target)
         # A PowerShuffle player holds only a ten-entry rolling window.
         # Always reconstruct its authoritative complete order on HA, never
@@ -202,7 +205,11 @@ class PowerLinkController:
             source_device = raw.get("source_device")
             profile_id = raw.get("profile_id")
             playhead = raw.get("position_ms")
-        if isinstance(context_key, str) and context_key.startswith("powershuffle:"):
+        if (
+            not trusted_powershuffle_launch
+            and isinstance(context_key, str)
+            and context_key.startswith("powershuffle:")
+        ):
             raw = await self.powershuffle.snapshot_for_handoff(
                 source_device, context_key.removeprefix("powershuffle:"),
                 profile_id, playhead,
@@ -269,7 +276,9 @@ class PowerLinkController:
         session.acknowledged = True
         source_paused = False
         pause_error = None
-        if status == "started":
+        if status == "started" and session.snapshot.source_device:
+            # An HA-initiated PowerShuffle launch has no source to pause.
+            # A normal handoff retains the previous first-frame guarantee.
             # A launcher return only proves the Android intent was delivered.
             # The PowerPlay receiver sends 'started' exclusively after the
             # destination confirms the right item, playhead and first frame.
@@ -313,7 +322,10 @@ class PowerLinkController:
         await execute_wake(self.hass, device, context)
         await launch_powerplay(self.hass, device, context)
 
-    async def handoff(self, raw: Mapping[str, Any], target: str, context) -> dict[str, Any]:
+    async def handoff(
+        self, raw: Mapping[str, Any], target: str, context,
+        *, trusted_powershuffle_launch: bool = False,
+    ) -> dict[str, Any]:
         device = self.device(target)
         if not device.supports_protocol_v1:
             raise HandoffError(
@@ -321,7 +333,9 @@ class PowerLinkController:
                 "(requires PowerPlay 1.3.0+ client-side receiver)"
             )
         # Plan and verify the actual current item BEFORE waking/moving focus.
-        prepared = await self.prepare(raw, target)
+        prepared = await self.prepare(
+            raw, target, trusted_powershuffle_launch=trusted_powershuffle_launch
+        )
         await execute_wake(self.hass, device, context)
         # A powered-on Fire TV may still be displaying its ambient screen.
         # HOME dismisses that surface without force-stopping PowerPlay, then
@@ -333,6 +347,53 @@ class PowerLinkController:
         # before any source-stopping action may be taken by HA automations.
         return prepared
 
+
+    def resolve_registered_destination(self, selected: str) -> str:
+        """Resolve an exact device entity or a unique HA room selector label."""
+        if selected in self.devices:
+            return selected
+        value = selected.strip().casefold()
+        room_slug = "_".join(value.split())
+        matches = [
+            entity_id for entity_id, device in self.devices.items()
+            if device.name.casefold() == value
+            or device.name.casefold().startswith(value + " ")
+            or entity_id.partition(".")[2] == room_slug
+            or entity_id.partition(".")[2].startswith(room_slug + "_")
+        ]
+        if len(matches) != 1:
+            raise HandoffError(
+                f"Cannot identify a single registered PowerLink device for '{selected}'. "
+                "Select its exact device entity ID or fix the room selector."
+            )
+        return matches[0]
+
+    async def launch_powershuffle(
+        self, show_title: str, destination: str, context,
+        *, profile_id: str | None = None, server_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Start a registered show from HA, no PowerPlay APK rebuild needed."""
+        target = self.resolve_registered_destination(destination)
+        if not self.device(target).supports_protocol_v1:
+            raise HandoffError(
+                "Enable the verified PowerLink receiver for this Fire Stick "
+                "before launching PowerShuffle."
+            )
+        command = await self.powershuffle.launch_from_home(
+            show_title, target, profile_id=profile_id, server_id=server_id,
+        )
+        if command["action"] == "handoff":
+            return await self.capture_handoff(command["source"], target, context)
+        if command["action"] in ("already_playing", "already_pending"):
+            return command
+        # Do not invalidate the pending session on an ADB/launch timeout:
+        # a Fire Stick can still start playback after its launch request
+        # times out. Keep the session attachable for the normal 60-second
+        # acknowledgment window, then allow the next request to retry.
+        return await self.handoff(
+            command["snapshot"], target, context,
+            trusted_powershuffle_launch=True,
+        )
 
     async def capture_handoff(self, source: str, destination: str, context) -> dict[str, Any]:
         """Ask PowerPlay for its *current* queue, then prepare and hand off.

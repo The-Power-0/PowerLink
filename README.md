@@ -42,7 +42,7 @@ PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. 
 
 | Component | Version |
 | --- | --- |
-| **PowerLink HACS integration** | **[0.3.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.0)** (PowerShuffle introduced) |
+| **PowerLink HACS integration** | **[0.3.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.1)** (PowerShuffle introduced) |
 | **PowerPlay Fire TV app** | **[1.4.0](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v1.4.0)** or later for PowerShuffle |
 | **Home Assistant** | 2025.12.0 or later |
 | **Deployment** | Home Assistant Container is supported — no Supervisor add-on store required |
@@ -185,6 +185,43 @@ Replace both example entities with devices registered in your installation. The 
 
 For additional controls, see the [available Home Assistant actions](custom_components/powerlink/services.yaml).
 
+### Start PowerShuffle directly from Home Assistant (0.3.1+)
+
+Once a show has been started at least once in PowerPlay, PowerLink retains its
+episode inventory and cycle history. You can then launch or continue that
+tracked rotation directly on a paired Fire Stick **without rebuilding
+PowerPlay**:
+
+```yaml
+action: powerlink.powershuffle_launch
+data:
+  show_title: King of the Hill
+  destination: media_player.game_room_fire_tv_stick_lite
+```
+
+A Lovelace dashboard can reuse existing input selectors without creating
+additional helpers or scripts:
+
+```yaml
+action: powerlink.powershuffle_launch
+data:
+  show_entity: input_select.plezy_shuffle_show
+  destination_entity: input_select.plezy_shuffle_fire_tv
+```
+
+If the show is playing on another device, the action performs a normal
+verified PowerLink handoff. Otherwise it starts the next eligible episode
+with the original queue and cycle tracking. Multiple profiles with the same
+show require an explicit `profile_id` to avoid writing history to the wrong
+profile. No tracked show or no currently eligible episode returns a clear
+error instead of silently falling back to Plex's regular shuffle.
+
+A compact **PowerLink PowerShuffle Library** sensor exposes up to 25 tracked
+show summaries in its `shows` attribute for dashboards. Existing per-show
+sensors remain supported. If a show is missing from the UI, the
+`powerlink.powershuffle_list` action can confirm whether its underlying
+PowerLink history is present.
+
 ## Home Assistant actions
 
 | Action | Purpose |
@@ -214,7 +251,8 @@ PowerLink is a controller, **not a Plex server, a remote-access tunnel, or an AD
 
 | Version | Milestone |
 | --- | --- |
-| **[0.3.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.0)** | **PowerShuffle**: persistent per-show/profile history, two skip choices, cycles, sensors, configurable global settings and handoff ownership. |
+| **[0.3.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.1)** | **Home Assistant launch:** start an existing PowerShuffle rotation directly from a dashboard, with safe receiver handoffs and a library summary sensor. |
+| [0.3.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.0) | **PowerShuffle**: persistent per-show/profile history, two skip choices, cycles, sensors, configurable global settings and handoff ownership. |
 | [0.2.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.1) | Destination wake and screensaver-dismiss reliability. |
 | [0.2.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.0) | Player pairing, device UI and Fire TV-initiated transfers. |
 | **0.1.x · early development** | Initial standalone Home Assistant controller and remote handoff support, before the published 0.2.x releases. |

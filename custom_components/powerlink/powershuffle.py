@@ -115,6 +115,7 @@ class PowerShuffleManager:
             "skips": {}, "recent_completed": {}, "history": [],
             "queue": [], "cursor": 0, "session_id": "", "owner": "",
             "playing": False, "started": False, "position_ms": 0,
+            "pending_destination": "", "pending_since": 0,
             "coverage_episode": "", "coverage": [],
             "last_activity": 0, "last_heartbeat": 0, "event_ids": [],
             "total_completions": 0, "completed_cycles": 0, "partial_cycles": 0,
@@ -263,6 +264,8 @@ class PowerShuffleManager:
             state["position_ms"] = 0
             state["last_activity"] = now
             state["last_heartbeat"] = 0
+            state["pending_destination"] = ""
+            state["pending_since"] = 0
             state["coverage_episode"] = ""
             state["coverage"] = []
             result = self._queue_reply(state, now)
@@ -280,6 +283,97 @@ class PowerShuffleManager:
             "settings": dict(self._settings), "current_index": 0,
             "summary": PowerShuffleManager._summary(state, now),
         }
+
+    async def launch_from_home(
+        self, show_title: str, destination: str,
+        *, profile_id: str | None = None, server_id: str | None = None,
+    ) -> dict:
+        """Begin a *previously registered* show using the existing receiver.
+
+        A PowerPlay deep link for PowerShuffle itself does not exist in
+        v1.4.0. This reuses the authenticated PowerLink transfer receiver,
+        including profile selection, destination quality matching and ACK.
+        Only HA-authenticated service calls may invoke this method.
+        """
+        title = _required(show_title, "show title")
+        _required(destination, "destination device", 250)
+        if profile_id is not None:
+            profile_id = _required(profile_id, "profile", 250)
+        if server_id is not None:
+            server_id = _required(server_id, "server", 150)
+        now = time.time()
+        async with self._lock:
+            matches = [
+                st for st in self._shows.values()
+                if st["title"].casefold() == title.casefold()
+                and (profile_id is None or st["profile_id"] == profile_id)
+                and (server_id is None or st["server_id"] == server_id)
+            ]
+            if not matches:
+                raise HandoffError(
+                    "This show has not been registered in PowerShuffle. "
+                    "Start it once in PowerPlay on a paired Fire Stick."
+                )
+            if len(matches) != 1:
+                raise HandoffError(
+                    "This show has more than one Plex profile or server. "
+                    "Provide profile_id and server_id to choose an exact rotation."
+                )
+            state = matches[0]
+            if state["playing"] and now - state["last_heartbeat"] < LIVE_SECONDS:
+                if state["owner"] == destination:
+                    return {"action": "already_playing", "destination": destination}
+                return {
+                    "action": "handoff", "source": state["owner"],
+                    "destination": destination,
+                }
+            if now - state.get("pending_since", 0) < LIVE_SECONDS:
+                if state.get("pending_destination") == destination:
+                    return {"action": "already_pending", "destination": destination}
+                raise HandoffError(
+                    "Another PowerShuffle launch is being prepared; try again "
+                    "after the previous receiver has acknowledged or timed out."
+                )
+            expired = (
+                now - state["last_activity"] >=
+                self._settings["inactivity_hours"] * 3600
+            )
+            self._refresh_queue(state, now, new_order=expired or not state["queue"])
+            if not state["queue"]:
+                raise HandoffError(
+                    "No episodes are currently eligible. Respect active "
+                    "five-day skips or adjust them in PowerLink settings."
+                )
+            state["session_id"] = secrets.token_urlsafe(24)
+            # A fresh HA launch has no source TV to pause on receiver ACK.
+            state["owner"] = ""
+            state["playing"] = False
+            state["started"] = False
+            state["position_ms"] = 0
+            state["coverage"] = []
+            state["coverage_episode"] = ""
+            state["last_activity"] = now
+            state["last_heartbeat"] = 0
+            state["pending_destination"] = destination
+            state["pending_since"] = now
+            snapshot = self._snapshot(state)
+            await self._save()
+            return {"action": "launch", "snapshot": snapshot,
+                    "session_id": state["session_id"], "destination": destination}
+
+    async def cancel_pending_launch(self, session_id: str) -> None:
+        """Make a failed HA-driven launch retryable, without erasing history."""
+        async with self._lock:
+            for state in self._shows.values():
+                if (state.get("session_id") == session_id
+                        and state.get("pending_destination")
+                        and not state["started"] and not state["playing"]):
+                    state["pending_destination"] = ""
+                    state["pending_since"] = 0
+                    state["session_id"] = ""
+                    state["owner"] = ""
+                    await self._save()
+                    return
 
     @staticmethod
     def _snapshot(state: dict) -> dict:
@@ -332,6 +426,8 @@ class PowerShuffleManager:
                     state["last_activity"] = now
                     state["last_heartbeat"] = now
                     state["started"] = True
+                    state["pending_destination"] = ""
+                    state["pending_since"] = 0
                     await self._save()
                     return
 
@@ -572,6 +668,8 @@ class PowerShuffleManager:
             state["session_id"] = ""
             state["owner"] = ""
             state["playing"] = False
+            state["pending_destination"] = ""
+            state["pending_since"] = 0
             state["queue"] = []
             await self._save()
             return self._summary(state, now)

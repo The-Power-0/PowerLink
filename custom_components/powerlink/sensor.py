@@ -10,6 +10,39 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from .const import DOMAIN
 
 
+class PowerShuffleLibrarySensor(SensorEntity):
+    """A single HA dashboard-friendly view of tracked PowerShuffle shows."""
+
+    _attr_has_entity_name = False
+    _attr_unique_id = "powerlink_powershuffle_library"
+    _attr_name = "PowerLink PowerShuffle Library"
+    _attr_icon = "mdi:television-play"
+    _attr_should_poll = False
+
+    def __init__(self) -> None:
+        self._rows: list[dict] = []
+
+    @property
+    def native_value(self) -> int:
+        return len(self._rows)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        # Bound the state attribute payload; large per-episode history stays
+        # in HA Store. Show counts remain accurate beyond this display limit.
+        return {
+            "powershuffle_library": True,
+            "shows": self._rows[:25],
+            "total_shows": len(self._rows),
+            "truncated": len(self._rows) > 25,
+        }
+
+    def update_rows(self, rows: list[dict]) -> None:
+        self._rows = [dict(row) for row in rows]
+        if self.hass is not None:
+            self.async_write_ha_state()
+
+
 class PowerShuffleSensor(SensorEntity):
     _attr_has_entity_name = False
     _attr_icon = "mdi:shuffle"
@@ -48,10 +81,14 @@ class PowerShuffleSensor(SensorEntity):
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
     controller = hass.data[DOMAIN]
     sensors: dict[str, PowerShuffleSensor] = {}
+    library = PowerShuffleLibrarySensor()
+    async_add_entities([library])
 
     async def update() -> None:
+        summaries = await controller.powershuffle.list_shows()
+        library.update_rows(summaries)
         missing = []
-        for summary in await controller.powershuffle.list_shows():
+        for summary in summaries:
             key = json.dumps([
                 summary["profile_id"], summary["show_guid"], summary["server_id"]
             ], separators=(",", ":"))

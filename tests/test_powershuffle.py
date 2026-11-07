@@ -185,6 +185,80 @@ class PowerShuffleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(info["status"], "available")
         self.assertEqual(info["eligible"], 2)
 
+    async def test_ha_launch_reuses_tracked_episode_inventory_and_preserves_profile(self):
+        state = self.manager._shows[self.manager.key(PROFILE, SHOW, SERVER)]
+        state["playing"] = False
+        result = await self.manager.launch_from_home(
+            "example show", "media_player.game_room",
+        )
+        self.assertEqual(result["action"], "launch")
+        snapshot = result["snapshot"]
+        self.assertEqual(snapshot["profile_id"], PROFILE)
+        self.assertEqual(snapshot["source_device"], "")
+        self.assertEqual(snapshot["position_ms"], 0)
+        self.assertEqual(len(snapshot["items"]), 3)
+        self.assertTrue(snapshot["context_key"].startswith("powershuffle:"))
+        self.assertEqual(state["pending_destination"], "media_player.game_room")
+        again = await self.manager.launch_from_home(
+            "Example Show", "media_player.game_room",
+        )
+        self.assertEqual(again["action"], "already_pending")
+        with self.assertRaises(engine.HandoffError):
+            await self.manager.launch_from_home("Example Show", "media_player.bedroom")
+        await self.manager.handoff_ack(result["session_id"], "media_player.game_room", True)
+        self.assertEqual(state["owner"], "media_player.game_room")
+        self.assertEqual(state["pending_destination"], "")
+        self.assertEqual((await self.manager.launch_from_home(
+            "Example Show", "media_player.game_room",
+        ))["action"], "already_playing")
+        moved = await self.manager.launch_from_home(
+            "Example Show", "media_player.living_room",
+        )
+        self.assertEqual(moved["action"], "handoff")
+        self.assertEqual(moved["source"], "media_player.game_room")
+
+    async def test_failed_ha_launch_can_retry_without_losing_history(self):
+        state = self.manager._shows[self.manager.key(PROFILE, SHOW, SERVER)]
+        state["playing"] = False
+        first = await self.manager.launch_from_home("Example Show", "media_player.game_room")
+        await self.manager.cancel_pending_launch(first["session_id"])
+        self.assertEqual(state["session_id"], "")
+        self.assertEqual(state["pending_destination"], "")
+        second = await self.manager.launch_from_home("Example Show", "media_player.game_room")
+        self.assertNotEqual(second["session_id"], first["session_id"])
+        self.assertEqual(state["cycle"], 1)
+        self.assertEqual(state["total_completions"], 0)
+
+    async def test_ha_launch_requires_exact_show_and_disambiguates_profiles(self):
+        with self.assertRaisesRegex(engine.HandoffError, "not been registered"):
+            await self.manager.launch_from_home("Never Tracked", "media_player.game_room")
+        self.payload["profile_id"] = "another-profile"
+        await self.manager.start("media_player.other", self.payload)
+        with self.assertRaisesRegex(engine.HandoffError, "more than one Plex profile"):
+            await self.manager.launch_from_home("Example Show", "media_player.game_room")
+        first = self.manager._shows[self.manager.key(PROFILE, SHOW, SERVER)]
+        first["playing"] = False
+        launch = await self.manager.launch_from_home(
+            "Example Show", "media_player.game_room", profile_id=PROFILE,
+        )
+        self.assertEqual(launch["action"], "launch")
+
+    async def test_ha_launch_never_ignores_five_day_cooldown(self):
+        await self.dispatch("started")
+        await self.dispatch("skip_five_days")
+        state = self.manager._shows[self.manager.key(PROFILE, SHOW, SERVER)]
+        state["playing"] = False
+        launched = await self.manager.launch_from_home(
+            "Example Show", "media_player.game_room",
+        )
+        self.assertEqual(launched["action"], "launch")
+        keys = {(item["season"], item["episode"]) for item in launched["snapshot"]["items"]}
+        skipped = [(int(a), int(b)) for a, b in (
+            [key.split(":") for key, row in state["skips"].items() if row.get("until", 0) > self.now]
+        )]
+        self.assertTrue(skipped)
+        self.assertTrue(all(key not in keys for key in skipped))
+
     async def test_history_survives_restart(self):
         await self.dispatch("started")
         await self.dispatch("skip_five_days")

@@ -115,3 +115,38 @@ powershuffle_manage:
             - reset_cycle
             - clear_cooldowns
             - reset_cycle_and_cooldowns
+
+powershuffle_launch:
+  name: Start PowerShuffle on a registered Fire Stick
+  description: >-
+    Start a previously tracked show's PowerShuffle rotation on a destination.
+    If the show is currently playing elsewhere, use the verified PowerLink handoff.
+    Use a title/device directly or supply existing Home Assistant selector helpers.
+    If multiple Plex profiles track this title, specify profile_id.
+  fields:
+    show_title:
+      example: King of the Hill
+      selector:
+        text:
+    show_entity:
+      example: input_select.plezy_shuffle_show
+      selector:
+        entity:
+          domain: input_select
+    destination:
+      example: media_player.game_room_fire_tv_stick_lite
+      selector:
+        text:
+    destination_entity:
+      example: input_select.plezy_shuffle_fire_tv
+      selector:
+        entity:
+          domain: input_select
+    profile_id:
+      example: plex-home-profile-id
+      selector:
+        text:
+    server_id:
+      example: plex-server-id
+      selector:
+        text:
