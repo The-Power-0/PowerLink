@@ -13,7 +13,7 @@
 
 *An independent, open-source Home Assistant integration built for [PowerPlay](https://github.com/The-Power-0/PowerPlay).*
 
-[Install](#installation) · [PowerShuffle](#powershuffle) · [Device setup](#registering-your-fire-tvs) · [Pairing](#pair-powerplay-with-home-assistant) · [Handoffs](#powerlink-handoffs) · [Automation](#home-assistant-actions)
+[Install](#installation) · [PowerShuffle](#powershuffle) · [Dashboard API](#powerlink-040-dashboard-backend) · [Device setup](#registering-your-fire-tvs) · [Pairing](#pair-powerplay-with-home-assistant) · [Handoffs](#powerlink-handoffs) · [Automation](#home-assistant-actions)
 
 </div>
 
@@ -42,7 +42,7 @@ PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. 
 
 | Component | Version |
 | --- | --- |
-| **PowerLink HACS integration** | **[0.3.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.1)** (PowerShuffle introduced) |
+| **PowerLink HACS integration** | **[0.4.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.4.0)** (dashboard backend) |
 | **PowerPlay Fire TV app** | **[1.4.0](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v1.4.0)** or later for PowerShuffle |
 | **Home Assistant** | 2025.12.0 or later |
 | **Deployment** | Home Assistant Container is supported — no Supervisor add-on store required |
@@ -217,10 +217,89 @@ profile. No tracked show or no currently eligible episode returns a clear
 error instead of silently falling back to Plex's regular shuffle.
 
 A compact **PowerLink PowerShuffle Library** sensor exposes up to 25 tracked
-show summaries in its `shows` attribute for dashboards. Existing per-show
-sensors remain supported. If a show is missing from the UI, the
-`powerlink.powershuffle_list` action can confirm whether its underlying
-PowerLink history is present.
+show summaries in its `shows` attribute for simple dashboard cards. Since
+0.4.0, the authenticated WebSocket API can retrieve *all* tracked shows in
+pages without putting huge episode lists in Home Assistant entity states.
+Existing per-show sensors and the read-only
+`powerlink.powershuffle_list` action remain supported.
+
+## PowerLink 0.4.0 dashboard backend
+
+This release is **Home Assistant only**. **PowerPlay 1.4.0 requires no rebuild**.
+PowerLink remains the single authoritative record for one Plex profile, show,
+and Plex server. The device keeps only the rolling playback queue; the iPhone
+dashboard reads Home Assistant directly, not your Fire Sticks.
+
+### Dashboard data and live updates
+
+The authenticated Home Assistant WebSocket API now supports:
+
+| WebSocket message `type` | What it returns |
+| --- | --- |
+| `powerlink/dashboard` | Tracked shows, cycle progress, recent session status, available rooms and non-sensitive settings. Optional `offset` and `limit` (up to 100) paginate the catalogue. |
+| `powerlink/subscribe_dashboard` | Pushes dashboard changes from existing PowerShuffle events and HA entity state changes, and expires stale statuses on HA without device polling. |
+| `powerlink/show_details` | On-demand episode/cooldown history; requires `show_id`, supports `offset` and `limit` (up to 100 episodes). |
+| `powerlink/show_artwork` | Optional on-demand Plex poster for an exact tracked `show_id`. Only available when Plex credentials are already configured in PowerLink. Images are served as bounded base64 data through the authenticated HA socket. |
+
+The `show_id` returned by `powerlink/dashboard` identifies the exact master
+rotation by Plex profile, show GUID and server. It avoids accidentally combining
+profiles with identical show names. It is not a Plex rating key.
+
+A dashboard custom card can use a normal Home Assistant connection:
+
+```javascript
+const snapshot = await hass.connection.sendMessagePromise({
+  type: "powerlink/dashboard", offset: 0, limit: 100
+});
+const show = snapshot.shows.find((entry) => entry.title === "King of the Hill");
+const history = await hass.connection.sendMessagePromise({
+  type: "powerlink/show_details", show_id: show.id, offset: 0, limit: 50
+});
+// The normal HA frontend subscribeMessage API can subscribe to
+// type: "powerlink/subscribe_dashboard" for push updates.
+```
+
+For explicit launch actions, prefer the stable `show_id` instead of a
+title/selector pair:
+
+```yaml
+action: powerlink.powershuffle_launch
+data:
+  show_id: "PASTE_THE_ID_RETURNED_BY_POWERLINK_DASHBOARD"
+  destination: media_player.game_room_fire_tv_stick_lite
+```
+
+This still runs the destination's **existing registered PowerLink wake
+routine**, including any protected TV power script, and uses the existing
+first-frame-verified handoff receiver. When another Fire Stick owns a live
+session, the action transfers that same shared queue rather than forking a
+new rotation.
+
+**Session-status semantics:** `recently_playing` means PowerLink received a
+recent progress/receiver event from the Fire Stick, not a promise that
+playback is advancing at this exact moment. `stale` indicates that event
+confirmation aged out; `starting` indicates an unconfirmed HA/PowerPlay
+launch; `transferring` indicates a PowerLink handoff has been prepared but
+has not yet received a first-frame acknowledgment.
+`idle` and `stopped` are not an invented paused-state signal. To avoid
+additional device traffic, 0.4.0 does not add a background pause probe.
+
+**Artwork:** PowerLink makes targeted Plex show metadata requests only for
+posters actually requested by the dashboard, checks immutable Plex show
+GUIDs, follows no redirects, transcodes to a small image, and caches results
+in RAM for up to six hours (15 minutes for misses). It does not scan your
+library, return Plex tokens, or load poster data on Fire TV.
+
+### Performance policy
+
+- **Zero new Fire TV timers, polling, sensors or RPCs.** PowerPlay's current
+  12-second progress events and on-action handoffs remain unchanged.
+- Only Home Assistant performs dashboard subscriptions and expiry checks;
+  those checks exist while a browser is subscribed.
+- Large episode ledgers remain in the HA master store; episode history and
+  posters load on demand instead of expanding sensor attributes.
+- This version exposes the backend for a future custom frontend card. It does
+  **not** automatically replace your existing Lovelace dashboard YAML.
 
 ## Home Assistant actions
 
@@ -233,6 +312,7 @@ PowerLink history is present.
 | `powerlink.prepare_handoff` / `powerlink.handoff` | Advanced ordered-queue preparation and launch. |
 | `powerlink.powershuffle_list` | Return tracked PowerShuffle show summaries. |
 | `powerlink.powershuffle_manage` | Reset a stopped rotation or clear five-day cooldowns. |
+| `powerlink.powershuffle_launch` | Start or hand off an existing tracked rotation using an exact `show_id` or legacy show/room selectors. |
 
 Normal device and PowerShuffle setup is available through the UI. The actions above are mainly for dashboards, automation and advanced workflows.
 
@@ -251,7 +331,8 @@ PowerLink is a controller, **not a Plex server, a remote-access tunnel, or an AD
 
 | Version | Milestone |
 | --- | --- |
-| **[0.3.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.1)** | **Home Assistant launch:** start an existing PowerShuffle rotation directly from a dashboard, with safe receiver handoffs and a library summary sensor. |
+| **[0.4.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.4.0)** | **Dashboard backend:** authenticated WebSocket master catalogue, session status, on-demand episode history and cached Plex posters. No extra Fire TV work. |
+| [0.3.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.1) | **Home Assistant launch:** start an existing PowerShuffle rotation directly from a dashboard, with safe receiver handoffs and a library summary sensor. |
 | [0.3.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.0) | **PowerShuffle**: persistent per-show/profile history, two skip choices, cycles, sensors, configurable global settings and handoff ownership. |
 | [0.2.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.1) | Destination wake and screensaver-dismiss reliability. |
 | [0.2.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.0) | Player pairing, device UI and Fire TV-initiated transfers. |

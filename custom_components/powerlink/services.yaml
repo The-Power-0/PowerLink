@@ -124,6 +124,11 @@ powershuffle_launch:
     Use a title/device directly or supply existing Home Assistant selector helpers.
     If multiple Plex profiles track this title, specify profile_id.
   fields:
+    show_id:
+      description: Exact stable ID returned by the authenticated PowerLink dashboard API; recommended for new dashboards.
+      example: 0123456789abcdef0123456789abcdef
+      selector:
+        text:
     show_title:
       example: King of the Hill
       selector:

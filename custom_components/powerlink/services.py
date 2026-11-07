@@ -102,7 +102,11 @@ def async_setup_services(hass) -> None:
 
         controller = _controller(hass)
         try:
-            title = selection("show_title", "show_entity", "show")
+            dashboard_id = call.data.get("show_id")
+            title = (
+                None if dashboard_id else
+                selection("show_title", "show_entity", "show")
+            )
             destination = selection(
                 "destination", "destination_entity", "Fire Stick"
             )
@@ -110,6 +114,7 @@ def async_setup_services(hass) -> None:
                 title, destination, call.context,
                 profile_id=call.data.get("profile_id"),
                 server_id=call.data.get("server_id"),
+                show_id=dashboard_id,
             )
         except HandoffError as err:
             raise _translate_error(err) from err
@@ -118,6 +123,7 @@ def async_setup_services(hass) -> None:
     hass.services.async_register(
         DOMAIN, "powershuffle_launch", powershuffle_launch,
         schema=vol.Schema({
+            vol.Optional("show_id"): cv.string,
             vol.Optional("show_title"): cv.string,
             vol.Optional("show_entity"): cv.entity_id,
             vol.Optional("destination"): cv.string,

@@ -1,7 +1,7 @@
 {
   "domain": "powerlink",
   "name": "PowerLink",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "documentation": "https://github.com/The-Power-0/PowerLink",
   "issue_tracker": "https://github.com/The-Power-0/PowerLink/issues",
   "codeowners": [

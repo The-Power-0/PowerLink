@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from urllib.parse import urlencode
 
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import DOMAIN, STORAGE_VERSION, STORAGE_KEY, SESSION_TTL_SECONDS
 from .device import DeviceSettings
@@ -18,6 +19,7 @@ from .plex_catalog import PlexCopyCatalog
 from .source_pause import pause_handoff_source
 from .app_pairing import AppPairings
 from .powershuffle import PowerShuffleManager
+from .dashboard_artwork import PowerLinkPosters
 
 
 @dataclass
@@ -53,6 +55,7 @@ class PowerLinkController:
         self.plex = PlexCopyCatalog(
             hass, plex_url, plex_token, server_id=data.get("plex_server_id", "")
         ) if plex_url and plex_token else None
+        self.dashboard_posters = PowerLinkPosters(self.plex) if self.plex else None
 
     async def async_load(self) -> None:
         await self.powershuffle.async_load()
@@ -234,6 +237,8 @@ class PowerLinkController:
         session = ActiveTransfer(snapshot, device, planner, time.monotonic())
         self._purge_expired()
         self._transfers[token] = session
+        if snapshot.context_key.startswith("powershuffle:"):
+            async_dispatcher_send(self.hass, "powerlink_powershuffle_updated")
         # Deep-link carries only the token and API base, never a Plex token,
         # queue manifest or Home Assistant long-lived API bearer.
         # Use the stable Plex Home UUID as the destination profile selector.
@@ -305,6 +310,8 @@ class PowerLinkController:
                 session.snapshot.context_key.removeprefix("powershuffle:"),
                 session.destination.entity_id, status == "started"
             )
+        if session.snapshot.context_key.startswith("powershuffle:"):
+            async_dispatcher_send(self.hass, "powerlink_powershuffle_updated")
         self.hass.bus.async_fire("powerlink_handoff_acknowledged", {
             "source_device": session.snapshot.source_device,
             "destination_device": session.destination.entity_id,
@@ -369,8 +376,9 @@ class PowerLinkController:
         return matches[0]
 
     async def launch_powershuffle(
-        self, show_title: str, destination: str, context,
+        self, show_title: str | None, destination: str, context,
         *, profile_id: str | None = None, server_id: str | None = None,
+        show_id: str | None = None,
     ) -> dict[str, Any]:
         """Start a registered show from HA, no PowerPlay APK rebuild needed."""
         target = self.resolve_registered_destination(destination)
@@ -381,6 +389,7 @@ class PowerLinkController:
             )
         command = await self.powershuffle.launch_from_home(
             show_title, target, profile_id=profile_id, server_id=server_id,
+            dashboard_id=show_id,
         )
         if command["action"] == "handoff":
             return await self.capture_handoff(command["source"], target, context)

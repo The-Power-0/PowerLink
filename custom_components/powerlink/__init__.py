@@ -15,12 +15,14 @@ from .http import (
     PowerShuffleStartView, PowerShuffleEventView, PowerShuffleAttachView,
 )
 from .services import async_setup_services
+from .dashboard_ws import async_register as register_dashboard_ws
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass, config) -> bool:
     async_setup_services(hass)
+    register_dashboard_ws(hass)
     hass.http.register_view(PowerLinkSessionView())
     hass.http.register_view(PowerLinkAcknowledgmentView())
     hass.http.register_view(PowerLinkCaptureView())
