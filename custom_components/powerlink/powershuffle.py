@@ -134,13 +134,17 @@ class PowerShuffleManager:
             return "full"
         deferred = [k for k in remaining if state["skips"].get(k, {}).get("until_cycle") == state["cycle"]]
         timed = [k for k in remaining if state["skips"].get(k, {}).get("until", 0) > now]
-        # Hard five-day cooldowns prevent rollover, even if some other
-        # episodes are marked next-cycle. No skip can shorten a timed cooldown.
+        # A show with playable episodes is not "waiting" merely because
+        # another episode has a timed cooldown.
+        if PowerShuffleManager._eligible(state, now):
+            return "available"
+        # Five-day skips are hard exclusions; they outlive cycle boundaries.
+        # Only an all-deferred rotation with no active timed skip may roll.
         if timed:
             return "waiting"
         if len(deferred) == len(remaining):
             return "partial"
-        return "available"
+        return "waiting"
 
     @staticmethod
     def _rollover(state: dict, reason: str, now: float) -> None:
