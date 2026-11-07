@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 FILE = Path(__file__).resolve().parents[1] / "custom_components" / "powerlink" / "dashboard_model.py"
 spec = importlib.util.spec_from_file_location("dashboard_model_stage", FILE)
@@ -74,6 +75,31 @@ class DashboardModelTests(unittest.TestCase):
         self.assertEqual(value["duration_ms"], 0)
         self.assertEqual(value["owner"], "media_player.bedroom")
         self.assertEqual(value["session_status"], "idle")
+
+    def test_pending_handoff_overlay_only_matches_exact_master_show(self):
+        own = self.state()
+        data = model.dashboard_show(own, 1020, self.summary())
+        other = model.dashboard_show(
+            self.state(profile_id="other-profile"), 1020, self.summary()
+        )
+        transfer = SimpleNamespace(
+            acknowledged=False, created_at=1200,
+            snapshot=SimpleNamespace(
+                source_device="media_player.bedroom",
+                profile_id="profile-a",
+                context_key="powershuffle:session",
+                items=[{"show_guid": "plex://show/123", "server_id": "server-1"}],
+            ),
+            destination=SimpleNamespace(entity_id="media_player.game_room"),
+        )
+        shows = [data, other]
+        model.apply_transfer_status(shows, [transfer], 1205)
+        self.assertEqual(data["session_status"], "transferring")
+        self.assertEqual(data["pending_destination"], "media_player.game_room")
+        self.assertNotEqual(other["session_status"], "transferring")
+        more = [model.dashboard_show(own, 1020, self.summary())]
+        model.apply_transfer_status(more, [transfer], 1921)
+        self.assertNotEqual(more[0]["session_status"], "transferring")
 
     def test_no_index_error_on_old_or_completed_queues(self):
         value = model.dashboard_show(self.state(queue=[], cursor=0, episodes={}), 1000, self.summary())
