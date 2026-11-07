@@ -214,10 +214,13 @@ class PowerShuffleStartView(HomeAssistantView):
         try:
             result = await controller.powershuffle.start(source, payload)
             if result.get("action") == "handoff":
-                # Reuse the verified PowerLink destination wake, queue
-                # matching and first-frame acknowledgement. The old player
-                # remains active until receiver confirmation.
-                await controller.handoff(result["snapshot"], source, Context())
+                # Request a fresh, source-verified playhead rather than
+                # transferring its last 12-second progress heartbeat.
+                # PowerLink uses a one-shot capture intent, its existing
+                # quality mapping, destination wake, and first-frame ACK.
+                # The old player continues until that ACK succeeds.
+                active_source = result["snapshot"]["source_device"]
+                await controller.capture_handoff(active_source, source, Context())
                 return web.json_response(
                     {"action": "handoff", "accepted": True},
                     headers={"Cache-Control": "no-store"},
