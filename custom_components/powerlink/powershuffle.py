@@ -375,6 +375,24 @@ class PowerShuffleManager:
         state["cursor"] += 1
         cls._refresh_queue(state, now)
 
+
+    async def attach(self, source: str, session_id: str) -> dict:
+        """Receiver joins only after the existing PowerLink playback ACK."""
+        _required(session_id, "session ID", 100)
+        async with self._lock:
+            for state in self._shows.values():
+                if state.get("session_id") == session_id and state["owner"] == source:
+                    return {
+                        "action": "attached", "session_id": session_id,
+                        "profile_id": state["profile_id"],
+                        "show_guid": state["show_guid"],
+                        "server_id": state["server_id"],
+                        "cycle": state["cycle"], "queue": list(state["queue"]),
+                        "current_index": state["cursor"],
+                        "summary": self._summary(state, time.time()),
+                    }
+        raise HandoffError("PowerShuffle receiver is not the acknowledged owner")
+
     async def list_shows(self) -> list[dict]:
         now = time.time()
         async with self._lock:
