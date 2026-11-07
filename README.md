@@ -2,7 +2,7 @@
 
 **The standalone HACS integration for [PowerPlay](https://github.com/The-Power-0/PowerPlay)** — a Home Assistant controller for device discovery, configurable power-on routines, and Plex playback handoff.
 
-> **Release compatibility.** PowerPlay **1.3.6** includes the tested Home Assistant-initiated PowerLink v1 handoff path. This **PowerLink 0.2.0 development PR** adds one-time pairing and player-initiated handoff for the separate **PowerPlay 1.3.7 development PR**. Neither new feature is part of a published 1.3.7 APK yet. Keep the receiver verification toggle disabled on any Fire Stick that has not successfully played a PowerLink transfer.
+> **Release compatibility.** PowerLink **v0.2.1** adds a safe Fire TV wake/screensaver-dismiss step before destination transfers. Pairing and player-initiated PowerLink handoff remain available from v0.2.0 (PowerPlay v1.3.7+). For improved destination playback startup, use PowerPlay **v1.3.10** with the new screen-awake hold. Keep the receiver verification toggle disabled on any device that has not successfully played a PowerLink transfer.
 
 ## What PowerLink does
 
