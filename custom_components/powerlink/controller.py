@@ -369,8 +369,9 @@ class PowerLinkController:
         return matches[0]
 
     async def launch_powershuffle(
-        self, show_title: str, destination: str, context,
+        self, show_title: str | None, destination: str, context,
         *, profile_id: str | None = None, server_id: str | None = None,
+        show_id: str | None = None,
     ) -> dict[str, Any]:
         """Start a registered show from HA, no PowerPlay APK rebuild needed."""
         target = self.resolve_registered_destination(destination)
@@ -381,6 +382,7 @@ class PowerLinkController:
             )
         command = await self.powershuffle.launch_from_home(
             show_title, target, profile_id=profile_id, server_id=server_id,
+            dashboard_id=show_id,
         )
         if command["action"] == "handoff":
             return await self.capture_handoff(command["source"], target, context)
