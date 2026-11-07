@@ -245,3 +245,23 @@ class PowerShuffleEventView(HomeAssistantView):
         except HandoffError as err:
             raise web.HTTPConflict(text=str(err)) from err
         return web.json_response(result, headers={"Cache-Control": "no-store"})
+
+
+class PowerShuffleAttachView(HomeAssistantView):
+    """Attach an acknowledged PowerLink handoff to its PowerShuffle history."""
+
+    url = "/api/powerlink/v1/app/powershuffle/attach"
+    name = "api:powerlink:app:powershuffle:attach"
+    requires_auth = False
+
+    async def post(self, request: web.Request) -> web.Response:
+        controller = request.app["hass"].data.get(DOMAIN)
+        if controller is None:
+            raise web.HTTPServiceUnavailable()
+        source = _app_identity(request, controller)
+        payload = await _read_bounded_json(request, 1024)
+        try:
+            result = await controller.powershuffle.attach(source, payload.get("session_id"))
+        except HandoffError as err:
+            raise web.HTTPConflict(text=str(err)) from err
+        return web.json_response(result, headers={"Cache-Control": "no-store"})
