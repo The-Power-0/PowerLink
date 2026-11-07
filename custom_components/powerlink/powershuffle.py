@@ -290,8 +290,9 @@ class PowerShuffleManager:
         }
 
     async def launch_from_home(
-        self, show_title: str, destination: str,
+        self, show_title: str | None, destination: str,
         *, profile_id: str | None = None, server_id: str | None = None,
+        dashboard_id: str | None = None,
     ) -> dict:
         """Begin a *previously registered* show using the existing receiver.
 
@@ -300,7 +301,7 @@ class PowerShuffleManager:
         including profile selection, destination quality matching and ACK.
         Only HA-authenticated service calls may invoke this method.
         """
-        title = _required(show_title, "show title")
+        title = _required(show_title, "show title") if dashboard_id is None else None
         _required(destination, "destination device", 250)
         if profile_id is not None:
             profile_id = _required(profile_id, "profile", 250)
@@ -308,9 +309,13 @@ class PowerShuffleManager:
             server_id = _required(server_id, "server", 150)
         now = time.time()
         async with self._lock:
+            candidates = (
+                [self._by_dashboard_id(dashboard_id)]
+                if dashboard_id is not None else self._shows.values()
+            )
             matches = [
-                st for st in self._shows.values()
-                if st["title"].casefold() == title.casefold()
+                st for st in candidates
+                if (title is None or st["title"].casefold() == title.casefold())
                 and (profile_id is None or st["profile_id"] == profile_id)
                 and (server_id is None or st["server_id"] == server_id)
             ]
