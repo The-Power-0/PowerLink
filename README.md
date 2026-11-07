@@ -2,7 +2,7 @@
 
 **The standalone HACS integration for [PowerPlay](https://github.com/The-Power-0/PowerPlay)** — a Home Assistant controller for device discovery, configurable power-on routines, and Plex playback handoff.
 
-> **Release compatibility.** PowerLink **v0.2.1** adds a safe Fire TV wake/screensaver-dismiss step before destination transfers. Pairing and player-initiated PowerLink handoff remain available from v0.2.0 (PowerPlay v1.3.7+). For improved destination playback startup, use PowerPlay **v1.3.10** with the new screen-awake hold. Keep the receiver verification toggle disabled on any device that has not successfully played a PowerLink transfer.
+> **Release compatibility.** PowerLink **v0.3.0** adds PowerShuffle for compatible **PowerPlay v1.4.0+** clients. PowerLink's existing verified queue handoffs, device settings and screen-awake routines remain available for older clients. PowerShuffle needs this integration version on Home Assistant; it does not change ordinary Plex watched status.
 
 ## What PowerLink does
 
@@ -13,6 +13,19 @@
 - **Server-side, lazy matching.** Queue windows of up to 32 entries are resolved **only on demand** with a maximum of 3 Plex queries in flight and a bounded 10-minute catalog cache. No idle traffic, full-library indexing or large payloads sent to the Fire Stick.
 - **Different homes/networks.** The Home Assistant controller's API URL can be a reachable private LAN URL or a TLS-protected external/VPN URL. Device wake/app launch can use the local ADB integration or a custom Home Assistant script/bridge on a different network. This is *routed connectivity*, not automatic internet tunneling.
 - **Safe handoff.** The current source is never stopped merely because the destination woke or accepted an Android intent. A receiver must acknowledge successful playback. A short-lived 256-bit secret grants access only to one handoff manifest, not HA/Plex credentials.
+
+## PowerShuffle (v0.3.0)
+
+PowerShuffle manages **one Plex show at a time**, independently for each Plex Home profile. A show is tracked automatically after PowerPlay v1.4.0 launches its PowerShuffle action. Home Assistant stores the current rotation, unique-viewed-range completion events, recent queue order, hard five-day skips, next-cycle deferrals, cycle statistics and active Fire Stick ownership.
+
+- **Skip for 5 days:** a persistent 120-hour elapsed-time cooldown, not cleared by cycle rollover.
+- **Skip until next cycle:** defers the episode for the current rotation without counting it as completed. A rotation with all remaining episodes deferred advances automatically and is recorded as **partial**, not fully completed.
+- **Completion:** 90% unique viewed content. Normal early exit is not a skip; incomplete episodes restart from 0:00 when selected again (a live PowerLink handoff preserves its actual playback attempt and position).
+- **Queue:** the current randomized order is retained for up to 12 inactive hours. The Fire Stick holds about 10 upcoming entries while Home Assistant retains the full logical order.
+- **Cycle progress:** a percentage of episodes actually completed; deferred episodes never inflate completion. Recently completed episodes receive 7-day *soft* repeat protection, but a hard five-day skip is never overridden.
+- **Management:** **Settings → Devices & Services → PowerLink → Configure → Manage PowerShuffle shows** offers per-show/proﬁle cycle reset, clear five-day skips and combined reset, with confirmation. A `sensor.powershuffle_*` summary entity is created for each tracked show and profile. Advanced users can call `powerlink.powershuffle_list` to obtain summaries.
+
+The app and integration communicate using an existing paired PowerPlay device identity. A compatible active session can move through PowerLink without losing the episode or current shuffled rotation. When Home Assistant is unreachable, an unconfirmed new queue must not be invented. PowerShuffle is separate from Plex's watched flags and PowerPlay's existing standard Shuffle.
 
 ## Installation (development preview)
 
