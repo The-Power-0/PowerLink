@@ -1,10 +1,7 @@
-name: Publish PowerLink HACS integration
+name: Legacy PowerLink v0.2.1 publisher (manual only)
+# Retained for historical reproducibility. New releases use the explicit
+# version-scoped publication request in powerlink-publish.yml.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'custom_components/powerlink/manifest.json'
-      - '.github/workflows/publish.yml'
   workflow_dispatch:
 
 permissions:
