@@ -100,7 +100,9 @@
           "edit_device": "Edit a registered device",
           "advanced_wake": "Edit advanced wake routine",
           "remove_device": "Remove a device",
-          "pair_player": "Pair PowerPlay player"
+          "pair_player": "Pair PowerPlay player",
+          "powershuffle": "Manage PowerShuffle shows",
+          "powershuffle_settings": "PowerShuffle global settings"
         },
         "menu_option_descriptions": {
           "discover_devices": "Find media players already available in Home Assistant; no network scan or new ADB connection.",
@@ -108,7 +110,9 @@
           "edit_device": "Update resolution, quality, launch method, URL or power-on behavior.",
           "advanced_wake": "Edit a multi-step wake routine in the object editor.",
           "remove_device": "Unregister a device from PowerLink only.",
-          "pair_player": "Generate a one-time pairing code for a registered Fire TV. No Home Assistant access token is needed."
+          "pair_player": "Generate a one-time pairing code for a registered Fire TV. No Home Assistant access token is needed.",
+          "powershuffle": "Review tracked series, cycle progress, and reset or clear skips.",
+          "powershuffle_settings": "Set the completion threshold, inactivity period, repeat protection, queue window and special episodes."
         }
       },
       "discover_devices": {
@@ -182,6 +186,36 @@
       "show_pair_code": {
         "title": "Enter this code on your Fire Stick",
         "description": "On **{device}** open **PowerPlay → Settings → PowerLink**, enter your Home Assistant URL and pairing code **{code}**. The code expires after 3 minutes and can be used once. Select Submit when finished."
+      },
+      "powershuffle": {
+        "title": "Choose a tracked PowerShuffle show",
+        "description": "Tracked shows are registered automatically when PowerPlay starts PowerShuffle.",
+        "data": {
+          "show_key": "Show and Plex profile"
+        }
+      },
+      "powershuffle_manage": {
+        "title": "PowerShuffle cycle controls",
+        "description": "{show} ({profile}) is on cycle {cycle} at {percent}% complete, with {deferred} next-cycle deferrals and {cooling} five-day skips. Changes are permanent and cannot be undone.",
+        "data": {
+          "command": "Management action",
+          "confirm": "I understand this changes PowerShuffle history"
+        }
+      },
+      "powershuffle_settings": {
+        "title": "PowerShuffle global settings",
+        "description": "Settings apply to all tracked shows and Plex profiles. The five-day skip option is always 120 hours.",
+        "data": {
+          "inactivity_hours": "Reshuffle after inactive hours",
+          "recent_days": "Recently completed protection (days)",
+          "queue_window": "Upcoming queue window (episodes)",
+          "completion_percent": "Unique content needed to complete (%)",
+          "include_specials": "Include specials (Season 0)"
+        }
+      },
+      "powershuffle_history": {
+        "title": "PowerShuffle episode history",
+        "description": "{show} · {profile}\\n\\n{last_cycle}\\n\\nCurrent skips (up to 30):\\n{history}\\n\\nThis view is read-only."
       }
     },
     "error": {
@@ -189,14 +223,18 @@
       "invalid_wake_steps": "Invalid wake routine. Use a list of supported service, delay or wait_state steps.",
       "device_unavailable": "This Home Assistant entity is no longer available.",
       "already_registered": "This device is already registered with PowerLink.",
-      "confirm_required": "Check the confirmation box before unregistering the device."
+      "confirm_required": "Check the confirmation box before unregistering the device.",
+      "powershuffle_active": "Stop active PowerShuffle playback before changing history.",
+      "powershuffle_invalid_settings": "Choose valid values for every PowerShuffle setting."
     },
     "abort": {
       "controller_not_ready": "PowerLink is not loaded. Reload the integration and try again.",
       "no_devices_found": "No new compatible Fire TV / Android TV entities were found. Use Add manually to choose an existing entity.",
       "no_registered_devices": "Register a device first.",
       "device_not_selected": "No valid device was selected.",
-      "no_verified_devices": "Enable verified PowerLink v1 for a registered device before pairing."
+      "no_verified_devices": "Enable verified PowerLink v1 for a registered device before pairing.",
+      "no_powershuffle_shows": "No shows have used PowerShuffle yet. Start it from a show's detail page in PowerPlay.",
+      "powershuffle_show_not_found": "This PowerShuffle show could not be found."
     }
   }
 }

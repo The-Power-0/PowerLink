@@ -12,6 +12,7 @@ from .controller import PowerLinkController
 from .http import (
     PowerLinkSessionView, PowerLinkAcknowledgmentView, PowerLinkCaptureView,
     PowerLinkAppPairView, PowerLinkAppDevicesView, PowerLinkAppHandoffView,
+    PowerShuffleStartView, PowerShuffleEventView, PowerShuffleAttachView,
 )
 from .services import async_setup_services
 
@@ -26,6 +27,9 @@ async def async_setup(hass, config) -> bool:
     hass.http.register_view(PowerLinkAppPairView())
     hass.http.register_view(PowerLinkAppDevicesView())
     hass.http.register_view(PowerLinkAppHandoffView())
+    hass.http.register_view(PowerShuffleStartView())
+    hass.http.register_view(PowerShuffleEventView())
+    hass.http.register_view(PowerShuffleAttachView())
     return True
 
 
@@ -33,9 +37,12 @@ async def async_setup_entry(hass, entry) -> bool:
     controller = PowerLinkController(hass, entry.data)
     await controller.async_load()
     hass.data[DOMAIN] = controller
+    await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
     return True
 
 
 async def async_unload_entry(hass, entry) -> bool:
-    hass.data.pop(DOMAIN, None)
-    return True
+    result = await hass.config_entries.async_unload_platforms(entry, ["sensor"])
+    if result:
+        hass.data.pop(DOMAIN, None)
+    return result

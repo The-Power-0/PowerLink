@@ -74,6 +74,32 @@ def async_setup_services(hass) -> None:
             raise _translate_error(err) from err
         return result if call.return_response else None
 
+    async def powershuffle_list(call):
+        return {"shows": await _controller(hass).powershuffle.list_shows()}
+
+    async def powershuffle_manage(call):
+        controller = _controller(hass)
+        await controller.powershuffle.manage(
+            call.data["profile_id"], call.data["show_guid"],
+            call.data["server_id"], call.data["command"]
+        )
+
+    hass.services.async_register(
+        DOMAIN, "powershuffle_list", powershuffle_list,
+        supports_response=SupportsResponse.ONLY,
+    )
+    async_register_admin_service(
+        hass, DOMAIN, "powershuffle_manage", powershuffle_manage,
+        schema=vol.Schema({
+            vol.Required("profile_id"): cv.string,
+            vol.Required("show_guid"): cv.string,
+            vol.Required("server_id"): cv.string,
+            vol.Required("command"): vol.In((
+                "reset_cycle", "clear_cooldowns", "reset_cycle_and_cooldowns"
+            )),
+        }),
+    )
+
     # Registration can configure arbitrary service sequences, so require admin.
     async_register_admin_service(
         hass, DOMAIN, SERVICE_REGISTER, register,

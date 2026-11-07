@@ -17,6 +17,7 @@ from .launcher import execute_wake, launch_powerplay, wake_destination_screen_fo
 from .plex_catalog import PlexCopyCatalog
 from .source_pause import pause_handoff_source
 from .app_pairing import AppPairings
+from .powershuffle import PowerShuffleManager
 
 
 @dataclass
@@ -46,6 +47,7 @@ class PowerLinkController:
         # remote polling is installed on any Fire Stick.
         self._captures: dict[str, PendingCapture] = {}
         self.app_pairings = AppPairings()
+        self.powershuffle = PowerShuffleManager(hass)
         self._lock = asyncio.Lock()
         plex_url, plex_token = data.get("plex_base_url"), data.get("plex_token")
         self.plex = PlexCopyCatalog(
@@ -53,6 +55,7 @@ class PowerLinkController:
         ) if plex_url and plex_token else None
 
     async def async_load(self) -> None:
+        await self.powershuffle.async_load()
         saved = await self._store.async_load() or {}
         self.app_pairings = AppPairings(saved.get("paired_tokens", {}))
         for raw in saved.get("devices", []):
@@ -186,6 +189,24 @@ class PowerLinkController:
 
     async def prepare(self, raw: Mapping[str, Any], target: str) -> dict[str, Any]:
         device = self.device(target)
+        # A PowerShuffle player holds only a ten-entry rolling window.
+        # Always reconstruct its authoritative complete order on HA, never
+        # transfer the partial on-device window or an old immutable handoff.
+        if isinstance(raw, QueueSnapshot):
+            context_key = raw.context_key
+            source_device = raw.source_device
+            profile_id = raw.profile_id
+            playhead = raw.position_ms
+        else:
+            context_key = raw.get("context_key")
+            source_device = raw.get("source_device")
+            profile_id = raw.get("profile_id")
+            playhead = raw.get("position_ms")
+        if isinstance(context_key, str) and context_key.startswith("powershuffle:"):
+            raw = await self.powershuffle.snapshot_for_handoff(
+                source_device, context_key.removeprefix("powershuffle:"),
+                profile_id, playhead,
+            )
         if isinstance(raw, QueueSnapshot):
             snapshot = raw
         elif isinstance(raw.get("queue_source"), Mapping):
@@ -270,6 +291,11 @@ class PowerLinkController:
                         "destination_device": session.destination.entity_id,
                         "reason": pause_error,
                     })
+        if session.snapshot.context_key.startswith("powershuffle:"):
+            await self.powershuffle.handoff_ack(
+                session.snapshot.context_key.removeprefix("powershuffle:"),
+                session.destination.entity_id, status == "started"
+            )
         self.hass.bus.async_fire("powerlink_handoff_acknowledged", {
             "source_device": session.snapshot.source_device,
             "destination_device": session.destination.entity_id,

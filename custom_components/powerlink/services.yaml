@@ -86,3 +86,32 @@ capture_handoff:
       selector:
         entity:
           domain: media_player
+
+powershuffle_list:
+  name: List tracked PowerShuffle shows
+  description: Return cycle completion and skip summaries for every tracked Plex profile and show.
+
+powershuffle_manage:
+  name: Manage PowerShuffle cycle
+  description: Reset a stopped show rotation, clear five-day skips, or both. Does not change Plex watched status.
+  fields:
+    profile_id:
+      required: true
+      selector:
+        text:
+    show_guid:
+      required: true
+      selector:
+        text:
+    server_id:
+      required: true
+      selector:
+        text:
+    command:
+      required: true
+      selector:
+        select:
+          options:
+            - reset_cycle
+            - clear_cooldowns
+            - reset_cycle_and_cooldowns

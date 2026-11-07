@@ -196,3 +196,75 @@ class PowerLinkAppHandoffView(HomeAssistantView):
             # HandoffError contains safe public descriptions, not credentials.
             raise web.HTTPConflict(text=str(err)) from err
         return web.json_response(result, headers={"Cache-Control": "no-store"})
+
+
+class PowerShuffleStartView(HomeAssistantView):
+    """Start a tracked show with the paired device's Plex profile."""
+
+    url = "/api/powerlink/v1/app/powershuffle/start"
+    name = "api:powerlink:app:powershuffle:start"
+    requires_auth = False
+
+    async def post(self, request: web.Request) -> web.Response:
+        controller = request.app["hass"].data.get(DOMAIN)
+        if controller is None:
+            raise web.HTTPServiceUnavailable()
+        source = _app_identity(request, controller)
+        payload = await _read_bounded_json(request, 2_000_000)
+        try:
+            result = await controller.powershuffle.start(source, payload)
+            if result.get("action") == "handoff":
+                # Request a fresh, source-verified playhead rather than
+                # transferring its last 12-second progress heartbeat.
+                # PowerLink uses a one-shot capture intent, its existing
+                # quality mapping, destination wake, and first-frame ACK.
+                # The old player continues until that ACK succeeds.
+                active_source = result["snapshot"]["source_device"]
+                await controller.capture_handoff(active_source, source, Context())
+                return web.json_response(
+                    {"action": "handoff", "accepted": True},
+                    headers={"Cache-Control": "no-store"},
+                )
+        except HandoffError as err:
+            raise web.HTTPConflict(text=str(err)) from err
+        return web.json_response(result, headers={"Cache-Control": "no-store"})
+
+
+class PowerShuffleEventView(HomeAssistantView):
+    """Idempotent events from the device that owns the playing session."""
+
+    url = "/api/powerlink/v1/app/powershuffle/event"
+    name = "api:powerlink:app:powershuffle:event"
+    requires_auth = False
+
+    async def post(self, request: web.Request) -> web.Response:
+        controller = request.app["hass"].data.get(DOMAIN)
+        if controller is None:
+            raise web.HTTPServiceUnavailable()
+        source = _app_identity(request, controller)
+        payload = await _read_bounded_json(request, 4096)
+        try:
+            result = await controller.powershuffle.event(source, payload)
+        except HandoffError as err:
+            raise web.HTTPConflict(text=str(err)) from err
+        return web.json_response(result, headers={"Cache-Control": "no-store"})
+
+
+class PowerShuffleAttachView(HomeAssistantView):
+    """Attach an acknowledged PowerLink handoff to its PowerShuffle history."""
+
+    url = "/api/powerlink/v1/app/powershuffle/attach"
+    name = "api:powerlink:app:powershuffle:attach"
+    requires_auth = False
+
+    async def post(self, request: web.Request) -> web.Response:
+        controller = request.app["hass"].data.get(DOMAIN)
+        if controller is None:
+            raise web.HTTPServiceUnavailable()
+        source = _app_identity(request, controller)
+        payload = await _read_bounded_json(request, 1024)
+        try:
+            result = await controller.powershuffle.attach(source, payload.get("session_id"))
+        except HandoffError as err:
+            raise web.HTTPConflict(text=str(err)) from err
+        return web.json_response(result, headers={"Cache-Control": "no-store"})
