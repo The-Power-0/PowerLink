@@ -291,7 +291,7 @@ class PowerShuffleManager:
         session_id = _required(payload.get("session_id"), "session", 100)
         event_id = _required(payload.get("event_id"), "event ID", 150)
         action = payload.get("action")
-        if action not in ("started", "progress", "completed", "skip_five_days", "skip_next_cycle", "exited"):
+        if action not in ("started", "progress", "completed", "skip_five_days", "skip_next_cycle", "ended", "exited"):
             raise HandoffError("Unsupported PowerShuffle event")
         now = time.time()
         async with self._lock:
@@ -333,6 +333,12 @@ class PowerShuffleManager:
                     state["completed"][item] = now
                     state["recent_completed"][item] = now
                     state["total_completions"] += 1
+                # A threshold completion records history immediately but
+                # does not move the cursor while the final 10% is still
+                # playing. EOF or a deliberate Next performs the advance.
+            elif action == "ended":
+                if not state["started"]:
+                    raise HandoffError("Cannot advance before actual playback")
                 state["playing"] = False
                 state["started"] = False
                 state["position_ms"] = 0
