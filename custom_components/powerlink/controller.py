@@ -189,6 +189,24 @@ class PowerLinkController:
 
     async def prepare(self, raw: Mapping[str, Any], target: str) -> dict[str, Any]:
         device = self.device(target)
+        # A PowerShuffle player holds only a ten-entry rolling window.
+        # Always reconstruct its authoritative complete order on HA, never
+        # transfer the partial on-device window or an old immutable handoff.
+        if isinstance(raw, QueueSnapshot):
+            context_key = raw.context_key
+            source_device = raw.source_device
+            profile_id = raw.profile_id
+            playhead = raw.position_ms
+        else:
+            context_key = raw.get("context_key")
+            source_device = raw.get("source_device")
+            profile_id = raw.get("profile_id")
+            playhead = raw.get("position_ms")
+        if isinstance(context_key, str) and context_key.startswith("powershuffle:"):
+            raw = await self.powershuffle.snapshot_for_handoff(
+                source_device, context_key.removeprefix("powershuffle:"),
+                profile_id, playhead,
+            )
         if isinstance(raw, QueueSnapshot):
             snapshot = raw
         elif isinstance(raw.get("queue_source"), Mapping):
