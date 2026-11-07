@@ -14,6 +14,7 @@ import time
 from typing import Any, Mapping
 
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .handoff import HandoffError, QueueSnapshot
 
@@ -73,6 +74,7 @@ def _parse_episode(raw: object, show_guid: str) -> tuple[str, dict]:
 
 class PowerShuffleManager:
     def __init__(self, hass) -> None:
+        self._hass = hass
         self._store = Store(hass, 1, STORAGE_KEY)
         self._shows: dict[str, dict] = {}
         self._lock = asyncio.Lock()
@@ -83,6 +85,7 @@ class PowerShuffleManager:
 
     async def _save(self) -> None:
         await self._store.async_save({"shows": self._shows})
+        async_dispatcher_send(self._hass, "powerlink_powershuffle_updated")
 
     @staticmethod
     def key(profile: str, show_guid: str, server_id: str) -> str:
