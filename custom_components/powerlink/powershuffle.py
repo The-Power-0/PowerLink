@@ -25,6 +25,12 @@ LIVE_SECONDS = 60
 MAX_EPISODES = 5000
 MAX_EVENTS = 2048
 STORAGE_KEY = "powerlink.powershuffle"
+DEFAULT_SETTINGS = {"inactivity_hours": 12, "recent_days": 7, "queue_window": 10,
+                    "completion_percent": 90, "include_specials": False}
+SETTINGS_OPTIONS = {"inactivity_hours": (1, 6, 12, 24, 48),
+                    "recent_days": (0, 3, 7, 14, 30),
+                    "queue_window": (5, 10, 15, 20, 32),
+                    "completion_percent": (80, 85, 90, 95)}
 
 
 def _required(value: object, name: str, size: int = 300) -> str:
@@ -79,14 +85,22 @@ class PowerShuffleManager:
         self._hass = hass
         self._store = Store(hass, 1, STORAGE_KEY)
         self._shows: dict[str, dict] = {}
+        self._settings = dict(DEFAULT_SETTINGS)
         self._lock = asyncio.Lock()
 
     async def async_load(self) -> None:
         saved = await self._store.async_load() or {}
         self._shows = saved.get("shows", {}) if isinstance(saved.get("shows"), dict) else {}
+        raw = saved.get("settings", {})
+        if isinstance(raw, dict):
+            for key, allowed in SETTINGS_OPTIONS.items():
+                if type(raw.get(key)) is int and raw[key] in allowed:
+                    self._settings[key] = raw[key]
+            if type(raw.get("include_specials")) is bool:
+                self._settings["include_specials"] = raw["include_specials"]
 
     async def _save(self) -> None:
-        await self._store.async_save({"shows": self._shows})
+        await self._store.async_save({"shows": self._shows, "settings": self._settings})
         async_dispatcher_send(self._hass, "powerlink_powershuffle_updated")
 
     @staticmethod
@@ -114,11 +128,11 @@ class PowerShuffleManager:
                 and state["skips"].get(key, {}).get("until", 0) <= now
                 and state["skips"].get(key, {}).get("until_cycle") != cycle]
 
-    @staticmethod
-    def _ordered(state: dict, now: float) -> list[str]:
-        eligible = PowerShuffleManager._eligible(state, now)
+    def _ordered(self, state: dict, now: float) -> list[str]:
+        eligible = self._eligible(state, now)
+        protect_seconds = self._settings["recent_days"] * 86400
         protected = [key for key in eligible
-                     if now - state["recent_completed"].get(key, -1e12) < RECENT_SECONDS]
+                     if now - state["recent_completed"].get(key, -1e12) < protect_seconds]
         primary = [key for key in eligible if key not in protected]
         # Repeat protection is soft: use protected items after the preferred pool.
         random.SystemRandom().shuffle(primary)
@@ -167,17 +181,16 @@ class PowerShuffleManager:
         state["queue"] = []
         state["cursor"] = 0
 
-    @classmethod
-    def _refresh_queue(cls, state: dict, now: float, *, new_order: bool = False) -> None:
-        status = cls._cycle_status(state, now)
+    def _refresh_queue(self, state: dict, now: float, *, new_order: bool = False) -> None:
+        status = self._cycle_status(state, now)
         if status in ("full", "partial"):
-            cls._rollover(state, status, now)
+            self._rollover(state, status, now)
             new_order = True
-        allowed = set(cls._eligible(state, now))
+        allowed = set(self._eligible(state, now))
         remaining = state["queue"][state["cursor"]:] if not new_order else []
         retained = [k for k in remaining if k in allowed]
         selected = set(retained)
-        additional = [k for k in cls._ordered(state, now) if k not in selected]
+        additional = [k for k in self._ordered(state, now) if k not in selected]
         state["queue"] = retained + additional
         state["cursor"] = 0
 
@@ -214,7 +227,7 @@ class PowerShuffleManager:
         for raw in inventory:
             key, episode = _parse_episode(raw, show_guid)
             # Specials excluded unless explicitly enabled by settings.
-            if episode["season"] == 0 and payload.get("include_specials") is not True:
+            if episode["season"] == 0 and not self._settings["include_specials"]:
                 continue
             if episode["server_id"] != server_id:
                 raise HandoffError("PowerShuffle inventory spans Plex servers")
@@ -241,7 +254,7 @@ class PowerShuffleManager:
             if state["playing"] and state["owner"] == source and now - state["last_heartbeat"] < LIVE_SECONDS:
                 await self._save()
                 return {"action": "already_playing", "summary": self._summary(state, now)}
-            expired = now - state["last_activity"] >= IDLE_SECONDS
+            expired = now - state["last_activity"] >= self._settings["inactivity_hours"] * 3600
             self._refresh_queue(state, now, new_order=expired or not state["queue"])
             state["session_id"] = secrets.token_urlsafe(24)
             state["owner"] = source
@@ -256,15 +269,15 @@ class PowerShuffleManager:
             await self._save()
             return result
 
-    @staticmethod
-    def _queue_reply(state: dict, now: float) -> dict:
+    def _queue_reply(self, state: dict, now: float) -> dict:
+        size = self._settings["queue_window"]
         return {
             "action": "play" if state["queue"] else "waiting",
             "session_id": state["session_id"], "cycle": state["cycle"],
             # The full order is authoritative on HA. The Fire Stick receives
             # only a rolling 10-item window to avoid maintaining giant queues.
-            "queue": list(state["queue"][state["cursor"]:state["cursor"] + 10]),
-            "current_index": 0,
+            "queue": list(state["queue"][state["cursor"]:state["cursor"] + size]),
+            "settings": dict(self._settings), "current_index": 0,
             "summary": PowerShuffleManager._summary(state, now),
         }
 
@@ -374,7 +387,7 @@ class PowerShuffleManager:
                 # count. Ranges survive PowerLink handoff of this attempt.
                 coverage = self._merge_coverage(state, payload.get("ranges", []), duration)
                 viewed = sum(end - start for start, end in coverage)
-                if viewed * 10 < duration * 9:
+                if viewed * 100 < duration * self._settings["completion_percent"]:
                     raise HandoffError("Completion requires 90% of unique content viewed")
                 if item not in state["completed"]:
                     state["completed"][item] = now
@@ -449,11 +462,10 @@ class PowerShuffleManager:
         state["coverage"] = merged
         return merged
 
-    @classmethod
-    def _advance(cls, state: dict, now: float) -> None:
+    def _advance(self, state: dict, now: float) -> None:
         # Remove consumed/invalid entries and refill from eligible episodes.
         state["cursor"] += 1
-        cls._refresh_queue(state, now)
+        self._refresh_queue(state, now)
 
 
     async def attach(self, source: str, session_id: str) -> dict:
@@ -468,13 +480,34 @@ class PowerShuffleManager:
                         "show_guid": state["show_guid"],
                         "server_id": state["server_id"],
                         "cycle": state["cycle"],
-                        "queue": list(state["queue"][state["cursor"]:state["cursor"] + 10]),
+                        "queue": list(state["queue"][state["cursor"]:state["cursor"] + self._settings["queue_window"]]),
                         "current_index": 0,
+                        "settings": dict(self._settings),
                         "coverage_episode": state.get("coverage_episode", ""),
                         "coverage": state.get("coverage", []),
                         "summary": self._summary(state, time.time()),
                     }
         raise HandoffError("PowerShuffle receiver is not the acknowledged owner")
+
+    @property
+    def settings(self) -> dict:
+        return dict(self._settings)
+
+    async def configure(self, requested: Mapping[str, Any]) -> dict:
+        validated = {}
+        if set(requested) != set(DEFAULT_SETTINGS):
+            raise HandoffError("PowerShuffle settings must be specified together")
+        for key, allowed in SETTINGS_OPTIONS.items():
+            if type(requested.get(key)) is not int or requested[key] not in allowed:
+                raise HandoffError(f"Invalid PowerShuffle {key}")
+            validated[key] = requested[key]
+        if type(requested.get("include_specials")) is not bool:
+            raise HandoffError("Invalid PowerShuffle specials setting")
+        validated["include_specials"] = requested["include_specials"]
+        async with self._lock:
+            self._settings = validated
+            await self._save()
+            return dict(validated)
 
     async def list_shows(self) -> list[dict]:
         now = time.time()
