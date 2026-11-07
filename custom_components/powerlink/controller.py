@@ -18,6 +18,7 @@ from .plex_catalog import PlexCopyCatalog
 from .source_pause import pause_handoff_source
 from .app_pairing import AppPairings
 from .powershuffle import PowerShuffleManager
+from .dashboard_artwork import PowerLinkPosters
 
 
 @dataclass
@@ -53,6 +54,7 @@ class PowerLinkController:
         self.plex = PlexCopyCatalog(
             hass, plex_url, plex_token, server_id=data.get("plex_server_id", "")
         ) if plex_url and plex_token else None
+        self.dashboard_posters = PowerLinkPosters(self.plex) if self.plex else None
 
     async def async_load(self) -> None:
         await self.powershuffle.async_load()
