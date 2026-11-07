@@ -196,3 +196,52 @@ class PowerLinkAppHandoffView(HomeAssistantView):
             # HandoffError contains safe public descriptions, not credentials.
             raise web.HTTPConflict(text=str(err)) from err
         return web.json_response(result, headers={"Cache-Control": "no-store"})
+
+
+class PowerShuffleStartView(HomeAssistantView):
+    """Start a tracked show with the paired device's Plex profile."""
+
+    url = "/api/powerlink/v1/app/powershuffle/start"
+    name = "api:powerlink:app:powershuffle:start"
+    requires_auth = False
+
+    async def post(self, request: web.Request) -> web.Response:
+        controller = request.app["hass"].data.get(DOMAIN)
+        if controller is None:
+            raise web.HTTPServiceUnavailable()
+        source = _app_identity(request, controller)
+        payload = await _read_bounded_json(request, 2_000_000)
+        try:
+            result = await controller.powershuffle.start(source, payload)
+            if result.get("action") == "handoff":
+                # Reuse the verified PowerLink destination wake, queue
+                # matching and first-frame acknowledgement. The old player
+                # remains active until receiver confirmation.
+                await controller.handoff(result["snapshot"], source, Context())
+                return web.json_response(
+                    {"action": "handoff", "accepted": True},
+                    headers={"Cache-Control": "no-store"},
+                )
+        except HandoffError as err:
+            raise web.HTTPConflict(text=str(err)) from err
+        return web.json_response(result, headers={"Cache-Control": "no-store"})
+
+
+class PowerShuffleEventView(HomeAssistantView):
+    """Idempotent events from the device that owns the playing session."""
+
+    url = "/api/powerlink/v1/app/powershuffle/event"
+    name = "api:powerlink:app:powershuffle:event"
+    requires_auth = False
+
+    async def post(self, request: web.Request) -> web.Response:
+        controller = request.app["hass"].data.get(DOMAIN)
+        if controller is None:
+            raise web.HTTPServiceUnavailable()
+        source = _app_identity(request, controller)
+        payload = await _read_bounded_json(request, 4096)
+        try:
+            result = await controller.powershuffle.event(source, payload)
+        except HandoffError as err:
+            raise web.HTTPConflict(text=str(err)) from err
+        return web.json_response(result, headers={"Cache-Control": "no-store"})
