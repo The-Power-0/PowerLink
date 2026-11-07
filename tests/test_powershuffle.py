@@ -259,6 +259,56 @@ class PowerShuffleTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(skipped)
         self.assertTrue(all(key not in keys for key in skipped))
 
+    async def test_dashboard_snapshot_and_paginated_details_use_master_history(self):
+        await self.dispatch("started")
+        await self.dispatch("skip_five_days")
+        snapshot = await self.manager.dashboard_snapshot()
+        self.assertEqual(snapshot["total_shows"], 1)
+        self.assertEqual(snapshot["version"], 1)
+        card = snapshot["shows"][0]
+        self.assertEqual(card["title"], "Example Show")
+        self.assertEqual(card["five_day_skips"], 1)
+        self.assertEqual(card["cycle"], 1)
+        self.assertEqual(card["session_status"], "idle")
+        self.assertEqual(len(card["id"]), 32)
+        page = await self.manager.dashboard_details(card["id"], offset=0, limit=2)
+        self.assertEqual(page["total_episodes"], 3)
+        self.assertEqual(len(page["episodes"]), 2)
+        self.assertEqual(page["episodes"][0]["episode_key"], "1:1")
+        self.assertTrue(any(row["status"] == "skip_five_days" for row in page["episodes"]))
+        page2 = await self.manager.dashboard_details(card["id"], offset=2, limit=2)
+        self.assertEqual(len(page2["episodes"]), 1)
+        identity = await self.manager.dashboard_identity(card["id"])
+        self.assertEqual(identity["server_id"], SERVER)
+        self.assertEqual(identity["guid"], SHOW)
+
+    async def test_dashboard_exact_id_launch_disambiguates_profiles(self):
+        self.payload["profile_id"] = "other-profile"
+        await self.manager.start("media_player.other", self.payload)
+        with self.assertRaisesRegex(engine.HandoffError, "more than one Plex profile"):
+            await self.manager.launch_from_home("Example Show", "media_player.game_room")
+        summaries = await self.manager.dashboard_snapshot()
+        primary = next(card for card in summaries["shows"] if card["profile_id"] == PROFILE)
+        launched = await self.manager.launch_from_home(
+            None, "media_player.game_room", dashboard_id=primary["id"]
+        )
+        self.assertEqual(launched["action"], "launch")
+        self.assertEqual(launched["snapshot"]["profile_id"], PROFILE)
+
+    async def test_dashboard_rejects_bad_ids_and_pagination(self):
+        with self.assertRaises(engine.HandoffError):
+            await self.manager.dashboard_details("not-valid")
+        with self.assertRaises(engine.HandoffError):
+            await self.manager.dashboard_details("a" * 32, limit=101)
+        with self.assertRaises(engine.HandoffError):
+            await self.manager.dashboard_snapshot(limit=0)
+        with self.assertRaises(engine.HandoffError):
+            await self.manager.dashboard_snapshot(offset=-1)
+        with self.assertRaises(engine.HandoffError):
+            await self.manager.launch_from_home(
+                None, "media_player.game_room", dashboard_id="b" * 32
+            )
+
     async def test_history_survives_restart(self):
         await self.dispatch("started")
         await self.dispatch("skip_five_days")
