@@ -355,7 +355,13 @@ class PowerShuffleManager:
                 state["playing"] = False
                 state["started"] = False
                 state["position_ms"] = 0
+                requested = payload.get("requested_episode_key")
+                if requested is not None and not isinstance(requested, str):
+                    raise HandoffError("Invalid requested PowerShuffle episode")
                 self._advance(state, now)
+                if requested and requested in state["queue"]:
+                    state["queue"].remove(requested)
+                    state["queue"].insert(0, requested)
             elif action == "exited":
                 # An early normal exit never creates a skip.
                 state["playing"] = False
