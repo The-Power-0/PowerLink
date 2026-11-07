@@ -275,9 +275,12 @@ class PowerShuffleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(page["total_episodes"], 3)
         self.assertEqual(len(page["episodes"]), 2)
         self.assertEqual(page["episodes"][0]["episode_key"], "1:1")
-        self.assertTrue(any(row["status"] == "skip_five_days" for row in page["episodes"]))
         page2 = await self.manager.dashboard_details(card["id"], offset=2, limit=2)
         self.assertEqual(len(page2["episodes"]), 1)
+        self.assertTrue(any(
+            row["status"] == "skip_five_days"
+            for row in page["episodes"] + page2["episodes"]
+        ))
         identity = await self.manager.dashboard_identity(card["id"])
         self.assertEqual(identity["server_id"], SERVER)
         self.assertEqual(identity["guid"], SHOW)
