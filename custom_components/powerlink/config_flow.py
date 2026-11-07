@@ -92,7 +92,7 @@ class PowerLinkOptionsFlow(config_entries.OptionsFlow):
         steps = ["discover_devices", "manual_device"]
         if self._controller.devices:
             steps.append("pair_player")
-        steps.append("powershuffle")
+        steps.extend(["powershuffle", "powershuffle_settings"])
         if self._controller.devices:
             steps.extend(["edit_device", "advanced_wake", "remove_device"])
         return self.async_show_menu(step_id="init", menu_options=steps)
@@ -378,6 +378,8 @@ class PowerLinkOptionsFlow(config_entries.OptionsFlow):
             return self.async_abort(reason="powershuffle_show_not_found")
         errors = {}
         if user_input is not None:
+            if user_input["command"] == "view_history":
+                return await self.async_step_powershuffle_history()
             if not user_input.get("confirm"):
                 errors["base"] = "confirm_required"
             else:
@@ -403,7 +405,80 @@ class PowerLinkOptionsFlow(config_entries.OptionsFlow):
                     "reset_cycle": "Start a new cycle (keep five-day skips)",
                     "clear_cooldowns": "Clear five-day skips",
                     "reset_cycle_and_cooldowns": "New cycle and clear five-day skips",
+                    "view_history": "View episode and cycle history (read-only)",
                 }),
                 vol.Required("confirm", default=False): bool,
             }),
+        )
+
+    async def async_step_powershuffle_settings(self, user_input=None):
+        """Small HA-native form for global PowerShuffle defaults."""
+        controller = self._controller
+        if controller is None:
+            return self.async_abort(reason="controller_not_ready")
+        settings = controller.powershuffle.settings
+        errors = {}
+        if user_input is not None:
+            try:
+                await controller.powershuffle.configure(user_input)
+            except HandoffError:
+                errors["base"] = "powershuffle_invalid_settings"
+            else:
+                return self._finish()
+        return self.async_show_form(
+            step_id="powershuffle_settings", errors=errors,
+            data_schema=vol.Schema({
+                vol.Required("inactivity_hours", default=settings["inactivity_hours"]):
+                    vol.In([1, 6, 12, 24, 48]),
+                vol.Required("recent_days", default=settings["recent_days"]):
+                    vol.In([0, 3, 7, 14, 30]),
+                vol.Required("queue_window", default=settings["queue_window"]):
+                    vol.In([5, 10, 15, 20, 32]),
+                vol.Required("completion_percent", default=settings["completion_percent"]):
+                    vol.In([80, 85, 90, 95]),
+                vol.Required("include_specials", default=settings["include_specials"]): bool,
+            }),
+        )
+
+    async def async_step_powershuffle_history(self, user_input=None):
+        """Read-only, bounded episode list; never reset history by viewing it."""
+        controller = self._controller
+        info = getattr(self, "_powershuffle_show", None)
+        if controller is None or not info:
+            return self.async_abort(reason="powershuffle_show_not_found")
+        details = await controller.powershuffle.details(
+            info["profile_id"], info["show_guid"], info["server_id"]
+        )
+        if user_input is not None:
+            return self._finish()
+        # Home Assistant config form descriptions have limited screen width.
+        # Show outstanding skips first, with full timestamps where available.
+        pending = [
+            item for item in details["episodes"]
+            if item["status"] in ("skip_five_days", "skip_next_cycle")
+        ]
+        lines = []
+        for item in pending[:30]:
+            value = item["status"].replace("_", " ")
+            if item["skip_until"] is not None:
+                value += " until " + str(int(item["skip_until"])) + " (Unix seconds)"
+            lines.append(f'{item["episode_key"]} {item["title"]}: {value}')
+        if not lines:
+            lines.append("No episodes currently skipped or deferred")
+        cycles = details["cycle_history"]
+        last_cycle = cycles[-1] if cycles else None
+        summary = (
+            f'Last rotation: cycle {last_cycle["cycle"]} '
+            f'({last_cycle["completed"]}/{last_cycle["total"]}, '
+            f'{last_cycle["reason"]})'
+            if last_cycle else "No previous rotations yet"
+        )
+        return self.async_show_form(
+            step_id="powershuffle_history",
+            description_placeholders={
+                "show": info["title"], "profile": info["profile_id"],
+                "history": "\\n".join(lines),
+                "last_cycle": summary,
+            },
+            data_schema=vol.Schema({}),
         )
