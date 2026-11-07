@@ -84,6 +84,50 @@ def async_setup_services(hass) -> None:
             call.data["server_id"], call.data["command"]
         )
 
+    async def powershuffle_launch(call):
+        """Resolve optional Home Assistant input_select helpers server-side."""
+        def selection(literal: str, helper: str, label: str) -> str:
+            direct = call.data.get(literal)
+            if direct is not None:
+                return direct
+            entity_id = call.data.get(helper)
+            if not entity_id:
+                raise HandoffError(f"Specify {literal} or {helper} for {label}")
+            state = hass.states.get(entity_id)
+            if state is None or state.state in (
+                "", "unknown", "unavailable", "none"
+            ):
+                raise HandoffError(f"Select a valid {label} using {entity_id}")
+            return state.state
+
+        controller = _controller(hass)
+        try:
+            title = selection("show_title", "show_entity", "show")
+            destination = selection(
+                "destination", "destination_entity", "Fire Stick"
+            )
+            result = await controller.launch_powershuffle(
+                title, destination, call.context,
+                profile_id=call.data.get("profile_id"),
+                server_id=call.data.get("server_id"),
+            )
+        except HandoffError as err:
+            raise _translate_error(err) from err
+        return result if call.return_response else None
+
+    hass.services.async_register(
+        DOMAIN, "powershuffle_launch", powershuffle_launch,
+        schema=vol.Schema({
+            vol.Optional("show_title"): cv.string,
+            vol.Optional("show_entity"): cv.entity_id,
+            vol.Optional("destination"): cv.string,
+            vol.Optional("destination_entity"): cv.entity_id,
+            vol.Optional("profile_id"): cv.string,
+            vol.Optional("server_id"): cv.string,
+        }),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+
     hass.services.async_register(
         DOMAIN, "powershuffle_list", powershuffle_list,
         supports_response=SupportsResponse.ONLY,
