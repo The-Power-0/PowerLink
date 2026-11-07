@@ -70,6 +70,9 @@ class PowerShuffleTests(unittest.IsolatedAsyncioTestCase):
     async def dispatch(self, action, item=None, suffix=None, **kw):
         state = self.manager._shows[self.manager.key(PROFILE, SHOW, SERVER)]
         item = item or state["queue"][state["cursor"]]
+        viewed = kw.get("viewed_ms")
+        if action == "completed" and isinstance(viewed, int):
+            kw["ranges"] = [[0, viewed]]
         data = {
             "profile_id": PROFILE, "show_guid": SHOW, "server_id": SERVER,
             "session_id": self.session["session_id"], "episode_key": item,
