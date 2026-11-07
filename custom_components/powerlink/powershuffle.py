@@ -17,6 +17,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .handoff import HandoffError, QueueSnapshot
+from .dashboard_model import dashboard_show, show_id
 
 SKIP_SECONDS = 5 * 24 * 3600
 IDLE_SECONDS = 12 * 3600
@@ -115,6 +116,7 @@ class PowerShuffleManager:
             "skips": {}, "recent_completed": {}, "history": [],
             "queue": [], "cursor": 0, "session_id": "", "owner": "",
             "playing": False, "started": False, "position_ms": 0,
+            "duration_ms": 0, "last_event": "", "last_event_at": 0,
             "pending_destination": "", "pending_since": 0,
             "coverage_episode": "", "coverage": [],
             "last_activity": 0, "last_heartbeat": 0, "event_ids": [],
@@ -262,8 +264,11 @@ class PowerShuffleManager:
             state["playing"] = False
             state["started"] = False
             state["position_ms"] = 0
+            state["duration_ms"] = 0
             state["last_activity"] = now
             state["last_heartbeat"] = 0
+            state["last_event"] = "launch_requested"
+            state["last_event_at"] = now
             state["pending_destination"] = ""
             state["pending_since"] = 0
             state["coverage_episode"] = ""
@@ -350,10 +355,13 @@ class PowerShuffleManager:
             state["playing"] = False
             state["started"] = False
             state["position_ms"] = 0
+            state["duration_ms"] = 0
             state["coverage"] = []
             state["coverage_episode"] = ""
             state["last_activity"] = now
             state["last_heartbeat"] = 0
+            state["last_event"] = "launch_requested"
+            state["last_event_at"] = now
             state["pending_destination"] = destination
             state["pending_since"] = now
             snapshot = self._snapshot(state)
@@ -426,6 +434,8 @@ class PowerShuffleManager:
                     state["last_activity"] = now
                     state["last_heartbeat"] = now
                     state["started"] = True
+                    state["last_event"] = "receiver_ack"
+                    state["last_event_at"] = now
                     state["pending_destination"] = ""
                     state["pending_since"] = 0
                     await self._save()
@@ -528,8 +538,13 @@ class PowerShuffleManager:
                 state["coverage_episode"] = ""
             if action in ("progress", "started"):
                 state["position_ms"] = position
+                duration = payload.get("duration_ms")
+                if type(duration) is int and 0 < duration <= 86_400_000:
+                    state["duration_ms"] = duration
                 state["last_heartbeat"] = now
             state["last_activity"] = now
+            state["last_event"] = action
+            state["last_event_at"] = now
             state["event_ids"].append(event_id)
             state["event_ids"] = state["event_ids"][-MAX_EVENTS:]
             await self._save()
@@ -612,6 +627,82 @@ class PowerShuffleManager:
             self._settings = validated
             await self._save()
             return dict(validated)
+
+    def _by_dashboard_id(self, dashboard_id: str) -> dict:
+        if not isinstance(dashboard_id, str) or len(dashboard_id) != 32 or any(
+            c not in "0123456789abcdef" for c in dashboard_id
+        ):
+            raise HandoffError("Invalid PowerShuffle dashboard show ID")
+        for state in self._shows.values():
+            if show_id(state["profile_id"], state["show_guid"], state["server_id"]) == dashboard_id:
+                return state
+        raise HandoffError("Unknown PowerShuffle dashboard show ID")
+
+    async def dashboard_snapshot(self, *, offset: int = 0, limit: int = 100) -> dict:
+        """Compact, paginated, read-only view of the HA master history."""
+        if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
+            raise HandoffError("Invalid PowerShuffle dashboard pagination")
+        now = time.time()
+        async with self._lock:
+            ordered = sorted(
+                self._shows.values(),
+                key=lambda row: (-row.get("last_activity", 0),
+                                 row.get("title", "").casefold(), row["profile_id"]),
+            )
+            shows = [
+                dashboard_show(row, now, self._summary(row, now))
+                for row in ordered[offset:offset + limit]
+            ]
+            return {
+                "version": 1,
+                "total_shows": len(ordered),
+                "offset": offset,
+                "limit": limit,
+                "shows": shows,
+            }
+
+    async def dashboard_details(
+        self, dashboard_id: str, *, offset: int = 0, limit: int = 50,
+    ) -> dict:
+        """Paginate individual episodes; never put 5000 entries in a HA state."""
+        if type(offset) is not int or offset < 0 or type(limit) is not int or not 1 <= limit <= 100:
+            raise HandoffError("Invalid PowerShuffle episode pagination")
+        now = time.time()
+        async with self._lock:
+            state = self._by_dashboard_id(dashboard_id)
+            keys = sorted(
+                state["episodes"],
+                key=lambda key: tuple(int(n) for n in key.split(":")),
+            )
+            rows = []
+            for key in keys[offset:offset + limit]:
+                episode = state["episodes"][key]
+                skip = state["skips"].get(key, {})
+                if key in state["completed"]:
+                    status = "completed"
+                elif skip.get("until", 0) > now:
+                    status = "skip_five_days"
+                elif skip.get("until_cycle") == state["cycle"]:
+                    status = "skip_next_cycle"
+                else:
+                    status = "available"
+                rows.append({
+                    "episode_key": key,
+                    "title": episode["title"],
+                    "season": episode["season"],
+                    "episode": episode["episode"],
+                    "status": status,
+                    "skip_until": skip.get("until") if status == "skip_five_days" else None,
+                    "completed_at": state["completed"].get(key),
+                })
+            return {
+                "show": dashboard_show(state, now, self._summary(state, now)),
+                "total_episodes": len(keys),
+                "offset": offset,
+                "limit": limit,
+                "episodes": rows,
+                "cycle_history": list(state["history"][-30:]),
+            }
 
     async def list_shows(self) -> list[dict]:
         now = time.time()
