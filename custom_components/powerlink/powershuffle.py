@@ -99,6 +99,7 @@ class PowerShuffleManager:
             "skips": {}, "recent_completed": {}, "history": [],
             "queue": [], "cursor": 0, "session_id": "", "owner": "",
             "playing": False, "started": False, "position_ms": 0,
+            "coverage_episode": "", "coverage": [],
             "last_activity": 0, "last_heartbeat": 0, "event_ids": [],
             "total_completions": 0, "completed_cycles": 0, "partial_cycles": 0,
         }
@@ -243,6 +244,8 @@ class PowerShuffleManager:
             state["position_ms"] = 0
             state["last_activity"] = now
             state["last_heartbeat"] = 0
+            state["coverage_episode"] = ""
+            state["coverage"] = []
             result = self._queue_reply(state, now)
             await self._save()
             return result
@@ -314,20 +317,29 @@ class PowerShuffleManager:
             if type(position) is not int or not 0 <= position <= 86_400_000:
                 raise HandoffError("Invalid PowerShuffle playback position")
             if action == "started":
+                if not state["started"] or state.get("coverage_episode") != item:
+                    state["coverage_episode"] = item
+                    state["coverage"] = []
                 state["started"] = True
                 state["playing"] = True
             elif action == "progress":
                 if not state["started"]:
                     raise HandoffError("Cannot record progress before playback starts")
+                duration = payload.get("duration_ms", 0)
+                if type(duration) is int and 0 < duration <= 86_400_000:
+                    self._merge_coverage(state, payload.get("ranges", []), duration)
                 state["playing"] = True
             elif action == "completed":
                 if not state["started"]:
                     raise HandoffError("Cannot complete an episode before actual playback")
                 duration = payload.get("duration_ms")
-                viewed = payload.get("viewed_ms")
-                if type(duration) is not int or type(viewed) is not int or not 0 < duration <= 86_400_000:
-                    raise HandoffError("Invalid completion measurement")
-                if not (0 <= viewed <= duration and viewed * 10 >= duration * 9):
+                if type(duration) is not int or not 0 < duration <= 86_400_000:
+                    raise HandoffError("Invalid episode duration")
+                # Only unique observed time ranges, never seek destinations,
+                # count. Ranges survive PowerLink handoff of this attempt.
+                coverage = self._merge_coverage(state, payload.get("ranges", []), duration)
+                viewed = sum(end - start for start, end in coverage)
+                if viewed * 10 < duration * 9:
                     raise HandoffError("Completion requires 90% of unique content viewed")
                 if item not in state["completed"]:
                     state["completed"][item] = now
@@ -342,6 +354,8 @@ class PowerShuffleManager:
                 state["playing"] = False
                 state["started"] = False
                 state["position_ms"] = 0
+                state["coverage"] = []
+                state["coverage_episode"] = ""
                 self._advance(state, now)
             elif action in ("skip_five_days", "skip_next_cycle"):
                 if not state["started"]:
@@ -366,6 +380,8 @@ class PowerShuffleManager:
                 # An early normal exit never creates a skip.
                 state["playing"] = False
                 state["started"] = False
+                state["coverage"] = []
+                state["coverage_episode"] = ""
             if action in ("progress", "started"):
                 state["position_ms"] = position
                 state["last_heartbeat"] = now
@@ -374,6 +390,29 @@ class PowerShuffleManager:
             state["event_ids"] = state["event_ids"][-MAX_EVENTS:]
             await self._save()
             return {"accepted": True, **self._queue_reply(state, now)}
+
+    @staticmethod
+    def _merge_coverage(state: dict, supplied: object, duration: int) -> list[list[int]]:
+        if not isinstance(supplied, list) or len(supplied) > 128:
+            raise HandoffError("Invalid PowerShuffle playback coverage")
+        all_ranges = list(state.get("coverage", []))
+        for pair in supplied:
+            if (not isinstance(pair, list) or len(pair) != 2
+                    or type(pair[0]) is not int or type(pair[1]) is not int
+                    or not 0 <= pair[0] < pair[1] <= duration):
+                raise HandoffError("Invalid viewed content range")
+            all_ranges.append(pair)
+        all_ranges.sort()
+        merged: list[list[int]] = []
+        for start, end in all_ranges:
+            if merged and start <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], end)
+            else:
+                merged.append([start, end])
+        if len(merged) > 128:
+            raise HandoffError("Too many playback coverage ranges")
+        state["coverage"] = merged
+        return merged
 
     @classmethod
     def _advance(cls, state: dict, now: float) -> None:
@@ -395,6 +434,8 @@ class PowerShuffleManager:
                         "server_id": state["server_id"],
                         "cycle": state["cycle"], "queue": list(state["queue"]),
                         "current_index": state["cursor"],
+                        "coverage_episode": state.get("coverage_episode", ""),
+                        "coverage": state.get("coverage", []),
                         "summary": self._summary(state, time.time()),
                     }
         raise HandoffError("PowerShuffle receiver is not the acknowledged owner")
