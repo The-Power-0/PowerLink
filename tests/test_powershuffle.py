@@ -152,6 +152,39 @@ class PowerShuffleTests(unittest.IsolatedAsyncioTestCase):
                 "media_player.stranger", self.session["session_id"], PROFILE, 17000,
             )
 
+    async def test_configurable_completion_and_global_settings_persist(self):
+        chosen = {
+            "inactivity_hours": 6, "recent_days": 14, "queue_window": 5,
+            "completion_percent": 95, "include_specials": False,
+        }
+        self.assertEqual(await self.manager.configure(chosen), chosen)
+        other = engine.PowerShuffleManager(object())
+        await other.async_load()
+        self.assertEqual(other.settings, chosen)
+        self.session = await other.start(DEVICE, self.payload)
+        self.assertEqual(self.session["settings"], chosen)
+        self.manager = other
+        await self.dispatch("started")
+        with self.assertRaises(engine.HandoffError):
+            await self.dispatch("completed", suffix="early-95", viewed_ms=90000, duration_ms=100000)
+        await self.dispatch("completed", suffix="correct-95", viewed_ms=95000, duration_ms=100000)
+        self.assertEqual((await self.manager.list_shows())[0]["completed"], 1)
+
+    async def test_details_show_current_skip_and_cycle_history(self):
+        await self.dispatch("started")
+        await self.dispatch("skip_five_days")
+        detail = await self.manager.details(PROFILE, SHOW, SERVER)
+        skipped = [entry for entry in detail["episodes"] if entry["status"] == "skip_five_days"]
+        self.assertEqual(len(skipped), 1)
+        self.assertEqual(skipped[0]["skip_until"], self.now + 120 * 3600)
+
+    async def test_available_status_when_another_episode_is_cooling_down(self):
+        await self.dispatch("started")
+        await self.dispatch("skip_five_days")
+        info = (await self.manager.list_shows())[0]
+        self.assertEqual(info["status"], "available")
+        self.assertEqual(info["eligible"], 2)
+
     async def test_history_survives_restart(self):
         await self.dispatch("started")
         await self.dispatch("skip_five_days")
