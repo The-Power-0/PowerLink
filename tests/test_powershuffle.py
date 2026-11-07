@@ -137,6 +137,21 @@ class PowerShuffleTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(engine.HandoffError):
             await self.manager.event("media_player.someone_else", request)
 
+    async def test_receiver_handoff_uses_full_ha_queue_not_tv_window(self):
+        self.payload["episodes"] = [episode(i) for i in range(1, 13)]
+        self.session = await self.manager.start(DEVICE, self.payload)
+        self.assertEqual(len(self.session["queue"]), 10)
+        await self.dispatch("started")
+        snapshot = await self.manager.snapshot_for_handoff(
+            DEVICE, self.session["session_id"], PROFILE, 17000,
+        )
+        self.assertEqual(len(snapshot["items"]), 12)
+        self.assertEqual(snapshot["position_ms"], 17000)
+        with self.assertRaises(engine.HandoffError):
+            await self.manager.snapshot_for_handoff(
+                "media_player.stranger", self.session["session_id"], PROFILE, 17000,
+            )
+
     async def test_history_survives_restart(self):
         await self.dispatch("started")
         await self.dispatch("skip_five_days")
