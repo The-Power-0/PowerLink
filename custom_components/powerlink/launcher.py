@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 
-from .adb_commands import launcher_command, deep_link_command
+from .adb_commands import launcher_command, deep_link_command, handoff_screen_wake_command
 
 from homeassistant.core import HomeAssistant, Context
 from homeassistant.helpers.event import async_track_state_change_event
@@ -87,6 +87,31 @@ async def execute_wake(hass: HomeAssistant, device: DeviceSettings,
             if step.get("continue_on_error") is True:
                 continue
             raise LaunchError(f"Wake sequence failed at step {index + 1}: {step['kind']}") from err
+
+
+async def wake_destination_screen_for_handoff(
+    hass: HomeAssistant, device: DeviceSettings, context: Context,
+) -> None:
+    """Bring an ADB destination out of Fire TV ambient mode before deep-link.
+
+    Runs *only* for a prepared, user-initiated destination handoff, not for a
+    source capture, an idle device scan, or periodic polling. A script-based
+    launch retains its existing user-supplied wake/foreground routine.
+    The follow-on deep-link opens PowerPlay after HOME dismissed the saver.
+    """
+    if device.launch_method != "adb":
+        return
+    try:
+        await asyncio.wait_for(
+            hass.services.async_call(
+                "androidtv", "adb_command",
+                {"entity_id": device.entity_id,
+                 "command": handoff_screen_wake_command()},
+                blocking=True, context=context,
+            ), timeout=15,
+        )
+    except Exception as err:
+        raise LaunchError("Destination Fire TV did not accept the wake command") from err
 
 
 async def launch_powerplay(hass: HomeAssistant, device: DeviceSettings,

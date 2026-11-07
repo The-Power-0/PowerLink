@@ -34,7 +34,7 @@ jobs:
           translations = json.loads((base / "translations/en.json").read_text())
           url = "https://github.com/The-Power-0/PowerLink"
           assert meta["domain"] == "powerlink"
-          assert meta["version"] == "0.2.0"
+          assert meta["version"] == "0.2.1"
           assert meta["config_flow"] is True
           assert meta["documentation"] == url
           assert meta["issue_tracker"] == url + "/issues"
