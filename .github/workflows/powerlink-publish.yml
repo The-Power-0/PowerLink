@@ -1,0 +1,72 @@
+name: Publish reviewed PowerLink HACS release
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/powerlink/publication-request.json'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: powerlink-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify explicit request and version agreement
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          request=json.loads(Path('.github/powerlink/publication-request.json').read_text())
+          manifest=json.loads(Path('custom_components/powerlink/manifest.json').read_text())
+          version=request['version']
+          assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',version)
+          assert request.get('confirm')=='PUBLISH_POWERLINK'
+          assert manifest['version']==version
+          assert Path(f'.github/powerlink/release-notes/v{version}.md').is_file()
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write(f'RELEASE_TAG=v{version}\n')
+          PY
+      - name: Validate exact source for published HACS integration
+        run: |
+          python -m compileall -q custom_components/powerlink tests
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          base=Path('custom_components/powerlink')
+          assert json.loads((base/'strings.json').read_text()) == json.loads((base/'translations/en.json').read_text())
+          assert json.loads(Path('hacs.json').read_text())['content_in_root'] is False
+          assert (base/'sensor.py').is_file() and (base/'powershuffle.py').is_file()
+          PY
+      - name: Publish only this approved version to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "PowerLink $RELEASE_TAG — PowerShuffle" \
+            --notes-file ".github/powerlink/release-notes/$RELEASE_TAG.md" \
+            --latest
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" = "$RELEASE_TAG"
