@@ -6,6 +6,7 @@ ADB probes, Plex scans or additional device events are introduced.
 from __future__ import annotations
 
 from datetime import timedelta
+import time
 
 import voluptuous as vol
 
@@ -15,6 +16,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import DOMAIN
+from .dashboard_model import apply_transfer_status
 from .handoff import HandoffError
 
 
@@ -43,6 +45,9 @@ def _devices(controller) -> list[dict]:
 async def _snapshot(hass, *, offset: int = 0, limit: int = 100) -> dict:
     controller = _controller(hass)
     payload = await controller.powershuffle.dashboard_snapshot(offset=offset, limit=limit)
+    apply_transfer_status(
+        payload["shows"], tuple(controller._transfers.values()), time.monotonic()
+    )
     payload["devices"] = _devices(controller)
     payload["settings"] = controller.powershuffle.settings
     payload["artwork_supported"] = controller.plex is not None
