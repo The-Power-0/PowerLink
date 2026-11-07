@@ -92,6 +92,7 @@ class PowerLinkOptionsFlow(config_entries.OptionsFlow):
         steps = ["discover_devices", "manual_device"]
         if self._controller.devices:
             steps.append("pair_player")
+        steps.append("powershuffle")
         if self._controller.devices:
             steps.extend(["edit_device", "advanced_wake", "remove_device"])
         return self.async_show_menu(step_id="init", menu_options=steps)
@@ -333,6 +334,76 @@ class PowerLinkOptionsFlow(config_entries.OptionsFlow):
                 "device": controller.devices[self._target_id].name
             },
             data_schema=vol.Schema({
+                vol.Required("confirm", default=False): bool,
+            }),
+        )
+
+    async def async_step_powershuffle(self, user_input=None):
+        """Manage tracked shows without YAML or developer actions."""
+        controller = self._controller
+        if controller is None:
+            return self.async_abort(reason="controller_not_ready")
+        shows = await controller.powershuffle.list_shows()
+        choices = {
+            controller.powershuffle.key(
+                show["profile_id"], show["show_guid"], show["server_id"]
+            ): (
+                f'{show["title"]} | {show["profile_id"]} | '
+                f'cycle {show["cycle"]} | {show["percent"]}% complete'
+            )
+            for show in shows
+        }
+        if not choices:
+            return self.async_abort(reason="no_powershuffle_shows")
+        if user_input is not None:
+            self._powershuffle_key = user_input["show_key"]
+            if self._powershuffle_key not in choices:
+                return self.async_abort(reason="powershuffle_show_not_found")
+            self._powershuffle_show = next(
+                item for item in shows
+                if controller.powershuffle.key(
+                    item["profile_id"], item["show_guid"], item["server_id"]
+                ) == self._powershuffle_key
+            )
+            return await self.async_step_powershuffle_manage()
+        return self.async_show_form(
+            step_id="powershuffle",
+            data_schema=vol.Schema({vol.Required("show_key"): vol.In(choices)}),
+        )
+
+    async def async_step_powershuffle_manage(self, user_input=None):
+        controller = self._controller
+        info = getattr(self, "_powershuffle_show", None)
+        if controller is None or not info:
+            return self.async_abort(reason="powershuffle_show_not_found")
+        errors = {}
+        if user_input is not None:
+            if not user_input.get("confirm"):
+                errors["base"] = "confirm_required"
+            else:
+                try:
+                    await controller.powershuffle.manage(
+                        info["profile_id"], info["show_guid"], info["server_id"],
+                        user_input["command"],
+                    )
+                except HandoffError:
+                    errors["base"] = "powershuffle_active"
+                else:
+                    return self._finish()
+        return self.async_show_form(
+            step_id="powershuffle_manage", errors=errors,
+            description_placeholders={
+                "show": info["title"], "profile": info["profile_id"],
+                "cycle": str(info["cycle"]), "percent": str(info["percent"]),
+                "deferred": str(info["next_cycle_skips"]),
+                "cooling": str(info["five_day_skips"]),
+            },
+            data_schema=vol.Schema({
+                vol.Required("command"): vol.In({
+                    "reset_cycle": "Start a new cycle (keep five-day skips)",
+                    "clear_cooldowns": "Clear five-day skips",
+                    "reset_cycle_and_cooldowns": "New cycle and clear five-day skips",
+                }),
                 vol.Required("confirm", default=False): bool,
             }),
         )
