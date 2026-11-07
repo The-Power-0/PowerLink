@@ -257,7 +257,10 @@ class PowerShuffleManager:
         return {
             "action": "play" if state["queue"] else "waiting",
             "session_id": state["session_id"], "cycle": state["cycle"],
-            "queue": list(state["queue"]), "current_index": state["cursor"],
+            # The full order is authoritative on HA. The Fire Stick receives
+            # only a rolling 10-item window to avoid maintaining giant queues.
+            "queue": list(state["queue"][state["cursor"]:state["cursor"] + 10]),
+            "current_index": 0,
             "summary": PowerShuffleManager._summary(state, now),
         }
 
@@ -273,6 +276,32 @@ class PowerShuffleManager:
             "source_device": state["owner"], "profile_id": state["profile_id"],
             "shuffled": True, "context_key": "powershuffle:" + state["session_id"],
         }
+
+    async def snapshot_for_handoff(
+        self, source: str, session_id: str, profile_id: str,
+        position_ms: object,
+    ) -> dict:
+        """Bind a real source playhead to HA's complete logical queue.
+
+        The playing Fire Stick has only a 10-item window; a PowerLink
+        transfer must still carry the full rotation including its future
+        entries and preserve the current playback position.
+        """
+        _required(session_id, "session ID", 100)
+        if type(position_ms) is not int or not 0 <= position_ms <= 86_400_000:
+            raise HandoffError("Invalid PowerShuffle handoff playhead")
+        async with self._lock:
+            for state in self._shows.values():
+                if state.get("session_id") != session_id:
+                    continue
+                if state.get("owner") != source or state.get("profile_id") != profile_id:
+                    raise HandoffError("PowerShuffle handoff identity does not match owner")
+                if not state.get("started") or not state.get("playing"):
+                    raise HandoffError("PowerShuffle must be playing before a handoff")
+                snapshot = self._snapshot(state)
+                snapshot["position_ms"] = position_ms
+                return snapshot
+        raise HandoffError("Unknown PowerShuffle session for handoff")
 
     async def handoff_ack(self, session_id: str, destination: str, started: bool) -> None:
         if not started:
@@ -434,8 +463,9 @@ class PowerShuffleManager:
                         "profile_id": state["profile_id"],
                         "show_guid": state["show_guid"],
                         "server_id": state["server_id"],
-                        "cycle": state["cycle"], "queue": list(state["queue"]),
-                        "current_index": state["cursor"],
+                        "cycle": state["cycle"],
+                        "queue": list(state["queue"][state["cursor"]:state["cursor"] + 10]),
+                        "current_index": 0,
                         "coverage_episode": state.get("coverage_episode", ""),
                         "coverage": state.get("coverage", []),
                         "summary": self._summary(state, time.time()),
