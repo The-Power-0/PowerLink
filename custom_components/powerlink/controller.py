@@ -386,14 +386,14 @@ class PowerLinkController:
             return await self.capture_handoff(command["source"], target, context)
         if command["action"] in ("already_playing", "already_pending"):
             return command
-        try:
-            return await self.handoff(
-                command["snapshot"], target, context,
-                trusted_powershuffle_launch=True,
-            )
-        except Exception:
-            await self.powershuffle.cancel_pending_launch(command["session_id"])
-            raise
+        # Do not invalidate the pending session on an ADB/launch timeout:
+        # a Fire Stick can still start playback after its launch request
+        # times out. Keep the session attachable for the normal 60-second
+        # acknowledgment window, then allow the next request to retry.
+        return await self.handoff(
+            command["snapshot"], target, context,
+            trusted_powershuffle_launch=True,
+        )
 
     async def capture_handoff(self, source: str, destination: str, context) -> dict[str, Any]:
         """Ask PowerPlay for its *current* queue, then prepare and hand off.
