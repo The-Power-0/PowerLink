@@ -278,7 +278,9 @@ new rotation.
 **Session-status semantics:** `recently_playing` means PowerLink received a
 recent progress/receiver event from the Fire Stick, not a promise that
 playback is advancing at this exact moment. `stale` indicates that event
-confirmation aged out; `starting` indicates an unconfirmed HA launch.
+confirmation aged out; `starting` indicates an unconfirmed HA/PowerPlay
+launch; `transferring` indicates a PowerLink handoff has been prepared but
+has not yet received a first-frame acknowledgment.
 `idle` and `stopped` are not an invented paused-state signal. To avoid
 additional device traffic, 0.4.0 does not add a background pause probe.
 
