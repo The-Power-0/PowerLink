@@ -217,7 +217,7 @@ PowerLink is a controller, **not a Plex server, a remote-access tunnel, or an AD
 | **[0.3.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.0)** | **PowerShuffle**: persistent per-show/profile history, two skip choices, cycles, sensors, configurable global settings and handoff ownership. |
 | [0.2.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.1) | Destination wake and screensaver-dismiss reliability. |
 | [0.2.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.0) | Player pairing, device UI and Fire TV-initiated transfers. |
-| [0.1.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.1.0) | Initial standalone Home Assistant controller and remote handoff support. |
+| **0.1.x · early development** | Initial standalone Home Assistant controller and remote handoff support, before the published 0.2.x releases. |
 
 PowerLink is maintained separately from the [PowerPlay Fire TV app](https://github.com/The-Power-0/PowerPlay). Use [Latest releases](https://github.com/The-Power-0/PowerLink/releases/latest) for the current HACS integration.
 
