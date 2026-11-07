@@ -353,10 +353,13 @@ class PowerLinkController:
         if selected in self.devices:
             return selected
         value = selected.strip().casefold()
+        room_slug = "_".join(value.split())
         matches = [
             entity_id for entity_id, device in self.devices.items()
             if device.name.casefold() == value
             or device.name.casefold().startswith(value + " ")
+            or entity_id.partition(".")[2] == room_slug
+            or entity_id.partition(".")[2].startswith(room_slug + "_")
         ]
         if len(matches) != 1:
             raise HandoffError(
