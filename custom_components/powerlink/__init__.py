@@ -12,6 +12,7 @@ from .controller import PowerLinkController
 from .http import (
     PowerLinkSessionView, PowerLinkAcknowledgmentView, PowerLinkCaptureView,
     PowerLinkAppPairView, PowerLinkAppDevicesView, PowerLinkAppHandoffView,
+    PowerShuffleStartView, PowerShuffleEventView,
 )
 from .services import async_setup_services
 
@@ -26,6 +27,8 @@ async def async_setup(hass, config) -> bool:
     hass.http.register_view(PowerLinkAppPairView())
     hass.http.register_view(PowerLinkAppDevicesView())
     hass.http.register_view(PowerLinkAppHandoffView())
+    hass.http.register_view(PowerShuffleStartView())
+    hass.http.register_view(PowerShuffleEventView())
     return True
 
 
