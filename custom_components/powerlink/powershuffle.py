@@ -514,6 +514,39 @@ class PowerShuffleManager:
         async with self._lock:
             return [self._summary(s, now) for s in self._shows.values()]
 
+    async def details(self, profile: str, show_guid: str, server_id: str) -> dict:
+        """On-demand episode details for the UI; no per-episode HA entities."""
+        now = time.time()
+        async with self._lock:
+            state = self._shows.get(self.key(profile, show_guid, server_id))
+            if state is None:
+                raise HandoffError("Unknown tracked PowerShuffle show")
+            episodes = []
+            for key, entry in sorted(
+                state["episodes"].items(), key=lambda row: tuple(
+                    int(x) for x in row[0].split(":")
+                ),
+            ):
+                skip = state["skips"].get(key, {})
+                if key in state["completed"]:
+                    status = "completed"
+                elif skip.get("until", 0) > now:
+                    status = "skip_five_days"
+                elif skip.get("until_cycle") == state["cycle"]:
+                    status = "skip_next_cycle"
+                else:
+                    status = "available"
+                episodes.append({
+                    "episode_key": key, "title": entry["title"], "status": status,
+                    "skip_until": skip.get("until") if status == "skip_five_days" else None,
+                    "completed_at": state["completed"].get(key),
+                })
+            return {
+                "summary": self._summary(state, now),
+                "cycle_history": list(state["history"][-30:]),
+                "episodes": episodes,
+            }
+
     async def manage(self, profile: str, show_guid: str, server_id: str, command: str) -> dict:
         if command not in ("reset_cycle", "clear_cooldowns", "reset_cycle_and_cooldowns"):
             raise HandoffError("Unsupported PowerShuffle management action")
