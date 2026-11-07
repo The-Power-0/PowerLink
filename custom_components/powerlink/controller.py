@@ -9,6 +9,7 @@ from typing import Any, Mapping
 from urllib.parse import urlencode
 
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import DOMAIN, STORAGE_VERSION, STORAGE_KEY, SESSION_TTL_SECONDS
 from .device import DeviceSettings
@@ -236,6 +237,8 @@ class PowerLinkController:
         session = ActiveTransfer(snapshot, device, planner, time.monotonic())
         self._purge_expired()
         self._transfers[token] = session
+        if snapshot.context_key.startswith("powershuffle:"):
+            async_dispatcher_send(self.hass, "powerlink_powershuffle_updated")
         # Deep-link carries only the token and API base, never a Plex token,
         # queue manifest or Home Assistant long-lived API bearer.
         # Use the stable Plex Home UUID as the destination profile selector.
@@ -307,6 +310,8 @@ class PowerLinkController:
                 session.snapshot.context_key.removeprefix("powershuffle:"),
                 session.destination.entity_id, status == "started"
             )
+        if session.snapshot.context_key.startswith("powershuffle:"):
+            async_dispatcher_send(self.hass, "powerlink_powershuffle_updated")
         self.hass.bus.async_fire("powerlink_handoff_acknowledged", {
             "source_device": session.snapshot.source_device,
             "destination_device": session.destination.entity_id,
