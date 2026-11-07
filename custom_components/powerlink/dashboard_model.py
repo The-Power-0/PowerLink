@@ -30,6 +30,13 @@ def session_status(state: Mapping, now: float) -> str:
     pending_since = state.get("pending_since") or 0
     if state.get("pending_destination") and 0 <= now - pending_since < STARTING_SECONDS:
         return "starting"
+    last_event_at = state.get("last_event_at") or 0
+    if (
+        state.get("last_event") == "launch_requested"
+        and 0 <= now - last_event_at < STARTING_SECONDS
+        and not state.get("playing")
+    ):
+        return "starting"
     if state.get("playing"):
         heartbeat = state.get("last_heartbeat") or 0
         if heartbeat > 0 and 0 <= now - heartbeat <= LIVE_SECONDS:
