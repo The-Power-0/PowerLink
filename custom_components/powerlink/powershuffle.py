@@ -505,6 +505,14 @@ class PowerShuffleManager:
             raise HandoffError("Invalid PowerShuffle specials setting")
         validated["include_specials"] = requested["include_specials"]
         async with self._lock:
+            now = time.time()
+            if any(
+                show.get("playing") and now - show.get("last_heartbeat", 0) < LIVE_SECONDS
+                for show in self._shows.values()
+            ):
+                raise HandoffError(
+                    "Stop active PowerShuffle playback before editing global settings"
+                )
             self._settings = validated
             await self._save()
             return dict(validated)
