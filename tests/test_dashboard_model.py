@@ -57,6 +57,7 @@ class DashboardModelTests(unittest.TestCase):
         self.assertEqual(model.session_status(self.state(playing=False, last_event="exited"), 1020), "stopped")
         self.assertEqual(model.session_status(self.state(playing=False, last_event="ended"), 1020), "idle")
         self.assertEqual(model.session_status(self.state(pending_destination="media_player.game_room", pending_since=1000), 1030), "starting")
+        self.assertEqual(model.session_status(self.state(playing=False, last_event="launch_requested", last_event_at=1000), 1030), "starting")
         self.assertEqual(model.session_status(self.state(pending_destination="media_player.game_room", pending_since=1000), 1091), "stale")
 
     def test_output_has_current_episode_but_never_queue_or_credentials(self):
