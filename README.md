@@ -1,111 +1,177 @@
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/The-Power-0/PowerPlay/main/docs/artwork/powerplay-icon.webp" alt="PowerPlay companion artwork" width="116" />
+
 # PowerLink
 
-**The standalone HACS integration for [PowerPlay](https://github.com/The-Power-0/PowerPlay)** — a Home Assistant controller for device discovery, configurable power-on routines, and Plex playback handoff.
+**The Home Assistant companion for PowerPlay. Connect your Fire TVs, move playback between rooms, and power smarter show shuffling.**
 
-> **Release compatibility.** PowerLink **v0.3.0** adds PowerShuffle for compatible **PowerPlay v1.4.0+** clients. PowerLink's existing verified queue handoffs, device settings and screen-awake routines remain available for older clients. PowerShuffle needs this integration version on Home Assistant; it does not change ordinary Plex watched status.
+[![Latest PowerLink](https://img.shields.io/badge/HACS-Latest%20Release-7C3AED?style=for-the-badge&logo=github&logoColor=white)](https://github.com/The-Power-0/PowerLink/releases/latest)
+[![PowerShuffle](https://img.shields.io/badge/Feature-PowerShuffle-6D28D9?style=for-the-badge)](#powershuffle)
+[![Home Assistant](https://img.shields.io/badge/Platform-Home%20Assistant-30303B?style=for-the-badge&logo=homeassistant&logoColor=white)](#installation)
+[![GPLv3](https://img.shields.io/badge/License-GPLv3-5930A5?style=for-the-badge)](LICENSE)
 
-## What PowerLink does
+*An independent, open-source Home Assistant integration built for [PowerPlay](https://github.com/The-Power-0/PowerPlay).*
 
-- **No LAN scans or competing ADB sessions.** It discovers existing Home Assistant Android Debug Bridge `media_player` entities and lets an administrator register them. It delegates ADB to Home Assistant's existing Android Debug Bridge integration.
-- **Device policies, not room names.** Configurable `max_height`, preference for highest quality, launch method (HA Android TV ADB or custom HA script), and per-device wake-up sequences.
-- **Exact queue continuity.** PowerPlay will export an ordered snapshot of the current **Plex** queue, its shuffled flag, cursor and exact playback offset. PowerLink retains every entry and duplicate in order. It does **not** reshuffle or rebuild a guessed queue.
-- **1080p and 4K matching.** For every requested queue window, PowerLink selects a copy whose verified resolution fits the destination. 4K-capable targets can choose a true 2160p copy; Full HD targets never receive a known UHD-only copy. Media identity is checked by Plex GUID or other high-confidence identifiers, not title alone.
-- **Server-side, lazy matching.** Queue windows of up to 32 entries are resolved **only on demand** with a maximum of 3 Plex queries in flight and a bounded 10-minute catalog cache. No idle traffic, full-library indexing or large payloads sent to the Fire Stick.
-- **Different homes/networks.** The Home Assistant controller's API URL can be a reachable private LAN URL or a TLS-protected external/VPN URL. Device wake/app launch can use the local ADB integration or a custom Home Assistant script/bridge on a different network. This is *routed connectivity*, not automatic internet tunneling.
-- **Safe handoff.** The current source is never stopped merely because the destination woke or accepted an Android intent. A receiver must acknowledge successful playback. A short-lived 256-bit secret grants access only to one handoff manifest, not HA/Plex credentials.
+[Install](#installation) · [PowerShuffle](#powershuffle) · [Device setup](#registering-your-fire-tvs) · [Pairing](#pair-powerplay-with-home-assistant) · [Handoffs](#powerlink-handoffs) · [Automation](#home-assistant-actions)
 
-## PowerShuffle (v0.3.0)
+</div>
 
-PowerShuffle manages **one Plex show at a time**, independently for each Plex Home profile. A show is tracked automatically after PowerPlay v1.4.0 launches its PowerShuffle action. Home Assistant stores the current rotation, unique-viewed-range completion events, recent queue order, hard five-day skips, next-cycle deferrals, cycle statistics and active Fire Stick ownership.
+---
 
-- **Skip for 5 days:** a persistent 120-hour elapsed-time cooldown, not cleared by cycle rollover.
-- **Skip until next cycle:** defers the episode for the current rotation without counting it as completed. A rotation with all remaining episodes deferred advances automatically and is recorded as **partial**, not fully completed.
-- **Completion:** 90% unique viewed content. Normal early exit is not a skip; incomplete episodes restart from 0:00 when selected again (a live PowerLink handoff preserves its actual playback attempt and position).
-- **Queue:** the current randomized order is retained for up to 12 inactive hours. The Fire Stick holds about 10 upcoming entries while Home Assistant retains the full logical order.
-- **Cycle progress:** a percentage of episodes actually completed; deferred episodes never inflate completion. Recently completed episodes receive 7-day *soft* repeat protection, but a hard five-day skip is never overridden.
-- **Management:** **Settings → Devices & Services → PowerLink → Configure → Manage PowerShuffle shows** offers per-show/proﬁle cycle reset, clear five-day skips and combined reset, with confirmation. A `sensor.powershuffle_*` summary entity is created for each tracked show and profile. Advanced users can call `powerlink.powershuffle_list` to obtain summaries.
+## One integration. Two ways to watch.
 
-The app and integration communicate using an existing paired PowerPlay device identity. A compatible active session can move through PowerLink without losing the episode or current shuffled rotation. When Home Assistant is unreachable, an unconfirmed new queue must not be invented. PowerShuffle is separate from Plex's watched flags and PowerPlay's existing standard Shuffle.
+PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. PowerPlay stays focused on the player and Fire TV remote; Home Assistant handles devices, wake routines, queue transfer and PowerShuffle history.
 
-## Installation (development preview)
+| | |
+| --- | --- |
+| **PowerShuffle** | Smart, single-show episode rotation with independent history, skip options and cycle tracking. |
+| **Room-to-room handoff** | Continue the same Plex episode, playback position and ordered queue on another paired Fire Stick. |
+| **Device discovery** | Select Fire TV / Android TV entities that already exist in Home Assistant — without subnet scans or a second ADB connection. |
+| **Wake routines** | Use a simple device wake command, a custom Home Assistant script or a bounded multistep routine. |
+| **1080p / 4K awareness** | Choose a verified matching copy for the destination's configured maximum resolution. |
+| **Home Assistant UI** | Register and edit devices, generate pairing codes, see tracked PowerShuffle shows and change settings without editing YAML. |
 
-In HACS open **Custom repositories**, add `https://github.com/The-Power-0/PowerLink`, choose **Integration**, then install PowerLink. Restart Home Assistant and add **PowerLink** under **Settings → Devices & Services**. For manual installation, copy `custom_components/powerlink` into your Home Assistant `/config/custom_components/`. Home Assistant Container works without Supervisor or an add-on store.
+<div align="center">
 
-In setup, provide a **Home Assistant base URL reachable by the Fire Sticks** (e.g. `http://10.0.0.10:8123` on your LAN or `https://home.example.net` across networks). Optional Plex URL/token enable Home Assistant-side targeted equivalent lookup, which is the preferred way to map your distinct `Movies [4K]` and `TV Shows [4K]` libraries.
+**POWERPLAY ON YOUR FIRE TV** ↔ **POWERLINK IN HOME ASSISTANT** ↔ **YOUR PLEX LIBRARY**
 
-### Example device policies (your three Fire Sticks)
+</div>
 
-This is an example only. The integration **does not** hard-code names, addresses, model-to-room mappings or an assumed local subnet.
+### Release compatibility
 
-| Existing Home Assistant entity | Preferred max | Launch | Quality policy |
-| --- | ---: | --- | --- |
-| `media_player.living_room_fire_tv_stick_4k_plus` | 2160p | ADB or custom script | Prefer highest available 4K copy |
-| `media_player.bedroom_fire_tv_stick_lite` | 1080p | ADB or custom script | Match HD version |
-| `media_player.game_room_fire_tv_stick_lite` | 1080p | ADB or custom script | Match HD version |
+| Component | Version |
+| --- | --- |
+| **PowerLink HACS integration** | **[0.3.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.0)** (PowerShuffle introduced) |
+| **PowerPlay Fire TV app** | **[1.4.0](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v1.4.0)** or later for PowerShuffle |
+| **Home Assistant** | 2025.12.0 or later |
+| **Deployment** | Home Assistant Container is supported — no Supervisor add-on store required |
 
-### Manage devices from Home Assistant's UI
+The ordinary PowerLink handoff features also work with earlier compatible PowerPlay builds. **PowerShuffle specifically requires the 0.3.0 / 1.4.0 combination or later.**
 
-Once PowerLink is installed and configured, go to **Settings → Devices & Services → PowerLink → Configure**. No Developer Tools actions or YAML are required for normal device management.
+## PowerShuffle
 
-1. **Find Fire TV / Android TV devices** lists matching media player entities already managed by Home Assistant, including their current status. Choose one, then save its settings. PowerLink never opens a second ADB connection or scans your subnet.
-2. **Add a device manually** selects another existing media player or remote entity. Use a custom launch script for remote-network bridges or integrations without Android TV ADB support.
-3. **Edit a registered device** changes its name, supported resolution (select 1080p for HD-only devices; 2160p for 4K-capable devices), preferred quality, app-launch method, HA endpoint override and verified PowerLink v1 receiver status.
-4. **Power-on routine** can be None, a safe state-aware \`media_player.turn_on\`, or a chosen Home Assistant script (called directly and awaited; a failed script blocks launch). Existing complex routines are preserved when editing normal settings. **Edit advanced wake routine** opens a JSON/object editor for conditional multi-step sequences.
-5. **Remove a device** requires confirmation and unregisters it from PowerLink without deleting the Home Assistant entity.
+**Watch a show in a new order without immediately repeating episodes you've already completed in PowerShuffle.**
 
-The discovery list contains entities **already integrated with Home Assistant**; it does not automatically discover a completely unpaired Fire Stick on the LAN. First add such a stick through Home Assistant's Android TV / ADB integration. The v1 receiver checkbox defaults to off because a handoff cannot be considered verified until PowerPlay 1.3.0+ is installed and end-to-end tested.
+PowerShuffle is an opt-in action on a Plex show's detail page in PowerPlay. Each Plex profile gets its own rotation, separate from Plex watched/unwatched flags and PowerPlay's existing standard Shuffle feature.
 
-The existing Developer Tools actions remain available for advanced automation and programmatic registration. For example, \`powerlink.register_device\` can configure custom wake steps:
+### Exactly two skip options
 
-~~~yaml
-action: powerlink.register_device
-data:
-  entity_id: media_player.living_room_fire_tv_stick_4k_plus
-  name: Living Room
-  max_height: 2160
-  prefer_highest_quality: true
-  launch_method: adb
-  # Initially false. Set only after PowerPlay 1.3.0 receiver is verified.
-  supports_protocol_v1: false
-  wake_steps:
-    - kind: service
-      domain: media_player
-      service: turn_on
-      entity_id: media_player.living_room_fire_tv_stick_4k_plus
-      when_not_states: [playing, paused, idle]
-      continue_on_error: true
-    - kind: wait_state
-      entity_id: media_player.living_room_fire_tv_stick_4k_plus
-      states: [idle, playing, paused, on]
-      timeout: 20
-~~~
+| Skip choice | Effect |
+| --- | --- |
+| **Skip for 5 days** | Excludes that episode for **120 elapsed hours**, including across cycle changes. |
+| **Skip until next cycle** | Removes the episode from this rotation; it becomes eligible when a new rotation starts. |
 
-Each device's wake steps are optional. For displays requiring CEC, smart plugs, input switching, delays, or other routines, use additional HA service/wait/delay steps. Every step has a bounded timeout and only executes when launching. **Never toggle a smart plug that powers a running device unexpectedly**; configure your own sequence. For cooldown-sensitive TVs, select **Run a Home Assistant script** and choose a wake-only script that verifies safety guards and power confirmation before returning. PowerLink calls that script directly and waits up to 600 seconds; errors abort launch. Do not choose a shuffle/playback script as a wake script or PowerPlay may start too early. In the advanced editor, use direct `script.<script_id>` calls rather than `script.turn_on`.
+An unfinished episode prompts for a skip choice only when the user explicitly skips or changes episodes. Normal exits, pauses, shutdowns and transfers do **not** trigger a skip.
 
-For a remote/second network, choose `launch_method: script` and `launch_script: script.my_fire_tv_handoff`. The script receives `powerlink_uri` as a variable and can forward it through an existing secure VPN, broker, remote HA instance or service. That transport must be configured by the user; it isn't bundled.
+### Cycles, history and playback
 
-The current PowerPlay 1.3.6 app can be opened without changing playback with:
+- **Completed** means the configured proportion of unique viewed content has been reached (default **90%**). Jumping near the end does not qualify; verified automatic intro/credits skips can count.
+- **Incomplete** episodes stay in the pool. When PowerShuffle chooses one again, it starts at 0:00; a live PowerLink handoff preserves the exact ongoing attempt and playhead.
+- **Full rotation:** when all episodes complete, record a completed cycle and start the next.
+- **Deferred rotation:** if all remaining episodes are **Skip until next cycle**, record a *partial* rotation, not a fully completed one, and automatically begin the next.
+- **Recent-completion protection:** avoid episodes completed within the last seven days by default, but relax that soft protection when necessary to keep playback moving. A five-day skip remains a **hard** exclusion.
+- **New episodes:** a newly discovered Plex episode joins the current rotation without wiping history.
+
+The rotation order is retained for up to 12 hours of inactivity by default. After that, a fresh order is generated from eligible episodes. Home Assistant keeps the **complete logical rotation** while PowerPlay receives a smaller rolling queue window (default **10 episodes**) to reduce Fire Stick work.
+
+### Manage PowerShuffle from Home Assistant
+
+Open **Settings → Devices & Services → PowerLink → Configure**:
+
+| Menu | What it controls |
+| --- | --- |
+| **Manage PowerShuffle shows** | View tracked shows and profiles, current completion, five-day skips and next-cycle deferrals. Reset a cycle, clear cooldowns or inspect the read-only episode history. |
+| **PowerShuffle global settings** | Change the completion threshold, queue inactivity, repeat-protection period, upcoming window and whether Season 0 specials are included. |
+
+Each tracked show/profile gets a `sensor.powershuffle_*` summary entity. Progress is the **percentage actually completed**, not the percentage skipped or deferred. Home Assistant stores the detailed episode ledger separately from sensor attributes.
+
+Example Home Assistant action to retrieve all tracked show summaries:
 
 ~~~yaml
-action: powerlink.open_device
-data:
-  entity_id: media_player.living_room_fire_tv_stick_4k_plus
+action: powerlink.powershuffle_list
+response_variable: powershuffle_status
 ~~~
 
-### Handoff from the PowerPlay player (0.2.0 / 1.3.7 preview)
+The `powerlink.powershuffle_manage` action is also available for advanced administration. Ordinary users can manage everything from the integration's configuration screens.
 
-PowerPlay 1.3.7 adds a dedicated **Settings → PowerLink** page on supported Fire TV devices, plus a PowerLink cast button in the Plex player controls. Home Assistant owns registered device discovery, device policy, wake routines and queue handoff; the Fire Stick does not run a LAN scan or background polling service.
+## Installation
 
-1. In **Settings → Devices & services → PowerLink → Configure**, register each Fire Stick and confirm its existing v1 handoff works. Enable **Verified PowerLink v1** on those devices only.
-2. Choose **Pair PowerPlay player**, select the Fire Stick, and obtain its nine-digit, single-use pairing code (valid for three minutes).
-3. On that Fire Stick, open **PowerPlay → Settings → PowerLink**, enter your reachable Home Assistant URL and the code, then pair. Refresh to view other verified, registered devices.
-4. During Plex playback, highlight the **PowerLink** player icon using the D-pad, choose another room, and allow Home Assistant to prepare, wake and start the destination. The original device is paused only after the destination acknowledges the correct playback.
+### 1. Install PowerLink using HACS
 
-Each player has a separate scoped credential encrypted using Android Keystore, not a long-lived Home Assistant administrator token. Device handoffs preserve the exact order and cursor for both Plex shuffled and sequential queues. Long protected wake routines are supported; if a request times out, inspect the destination before retrying because the wake routine may still be running. See [player-initiated handoff setup and troubleshooting](docs/player-initiated-handoff.md).
+1. In Home Assistant, open **HACS → Custom repositories**.
+2. Add `https://github.com/The-Power-0/PowerLink` and select **Integration** as the repository type.
+3. Install the [latest stable release](https://github.com/The-Power-0/PowerLink/releases/latest), then **restart Home Assistant**.
+4. Go to **Settings → Devices & Services → Add integration → PowerLink**.
 
-### One-tap on-demand handoff
+For a manual installation, copy the `custom_components/powerlink` folder into `/config/custom_components/powerlink` and restart Home Assistant. Installation does not require a separate database, MQTT broker or additional ADB server.
 
-After registering **both** devices and verifying the PowerPlay 1.3.0 receiver on each, Home Assistant can initiate a complete handoff without requiring a local UI action on the source:
+### 2. Configure connectivity
+
+Provide the **Home Assistant base URL** that each Fire Stick can reach, such as a private LAN URL or an HTTPS URL reachable over an existing routed network. PowerLink can optionally use configured Plex server credentials for **targeted matching** of HD and 4K copies.
+
+A reachable URL is required for the PowerPlay app to contact Home Assistant. PowerLink **does not create VPNs, public tunnels or firewall rules** for you.
+
+## Registering your Fire TVs
+
+Open **Settings → Devices & Services → PowerLink → Configure**.
+
+- **Find Fire TV / Android TV devices:** choose from existing Home Assistant media player entities.
+- **Add a device manually:** select another supported `media_player` or `remote` entity, using a custom launch script where needed.
+- **Edit a registered device:** configure its display-resolution limit, quality preference, launch method and power-on routine.
+- **Edit advanced wake routine:** customize ordered service calls, waits and delays with safety limits.
+- **Remove a device:** unregister it from PowerLink without deleting its Home Assistant entity.
+
+**Important:** PowerLink discovers devices **already integrated with Home Assistant**. For a new Fire Stick, configure it in Home Assistant's Android TV / ADB integration first. PowerLink delegates commands to that existing integration and does not open a second ADB session.
+
+### Example resolution policies
+
+| Device capability | Maximum height | Typical result |
+| --- | ---: | --- |
+| 4K Fire TV Stick | 2160p | Prefer a verified matching UHD copy when one exists. |
+| Fire TV Stick Lite / 1080p device | 1080p | Select a matching HD copy; avoid known UHD-only media. |
+
+These policies are per device, **not hard-coded by room name**. An HDMI output temporarily set to 1080p does not change a configured 4K-capable device's resolution policy. If no trustworthy matching media can be found, the transfer should report an error rather than silently choose the wrong episode.
+
+### Power-on routines
+
+Choose the approach that matches how the TV actually turns on:
+
+| Option | Best for |
+| --- | --- |
+| **None** | An already-awake Fire Stick or a separately controlled display. |
+| **Turn on if necessary** | A straightforward Home Assistant entity with reliable state reporting. |
+| **Run a Home Assistant script** | CEC, input switching, protected smart plugs, receiver startup or other custom safeguards. |
+| **Advanced wake steps** | A sequence of service calls, waits and delays managed in the PowerLink UI. |
+
+Scripts are called directly and awaited; failed required wake steps prevent the launch. **Avoid blind power toggles** that might switch off an already-running television or receiver.
+
+## Pair PowerPlay with Home Assistant
+
+Pair each Fire Stick independently so it can request destinations and handoffs directly from its player controls.
+
+1. Register the device in PowerLink and mark its **PowerLink v1 receiver as verified** only after a successful playback test.
+2. Under **PowerLink → Configure**, choose **Pair PowerPlay player** and select the target Fire Stick.
+3. Enter the **nine-digit, one-time code** in **PowerPlay → Settings → PowerLink**, along with the reachable Home Assistant URL. The code expires after three minutes.
+4. Select **Pair**, then refresh the device list. Repeat for any other Fire Sticks.
+
+Each device receives its own scoped credential stored using Android Keystore encryption. Pairing does not require placing a full Home Assistant administrator token on a Fire Stick.
+
+## PowerLink handoffs
+
+### Transfer from the player
+
+During Plex playback, open the controls, select the **PowerLink** icon with the D-pad and choose another paired room. Home Assistant validates the queue and media copy, executes the destination's wake routine, launches playback and waits for confirmation.
+
+**The source remains playing until the destination confirms it started the requested media.** If preparation, quality matching or playback fails, the transfer is rejected rather than treating a successful app launch as successful playback.
+
+PowerLink maintains the original episode order, shuffle state and playback offset for both shuffled and sequential Plex queues. It can also carry the **active PowerShuffle rotation**, including cycle identity and in-progress completion tracking.
+
+Starting the *same active show's PowerShuffle* on another paired Fire Stick can also initiate a handoff automatically.
+
+### Transfer from Home Assistant
+
+To capture the exact current Plex queue and move it without opening the picker:
 
 ~~~yaml
 action: powerlink.capture_handoff
@@ -115,111 +181,65 @@ data:
 response_variable: powerlink_transfer
 ~~~
 
-Home Assistant creates a cryptographically random **one-time capture token**, sends a `powerplay://powerlink-capture?v=1&base=...&token=...&source=...` intent to the *already playing* source Fire Stick, and awaits a fresh snapshot for at most 15 seconds. PowerPlay's active player captures its current Plex queue ID, selected Plex queue-item ID, and current playhead **only when requested**, then POSTs that tiny payload to `/api/powerlink/v1/capture/<token>`. The source is not paused, and the capture token cannot authorize any other queue or device.
+Replace both example entities with devices registered in your installation. The integration asks the **actively playing source** for a fresh position and queue snapshot before preparing the transfer.
 
-Once Home Assistant validates the current item has a compatible Plex file at the destination, it executes that destination's configured power-on sequence and launch adapter. The new app fetches 32-entry windows and explicitly selects the destination's Plex media **ID and index** (1080p for HD-only devices; verified highest quality for 4K devices). It ACKs `started` only after the player reports the correct item, first frame, and seek position.
+For additional controls, see the [available Home Assistant actions](custom_components/powerlink/services.yaml).
 
-This action is gated behind both devices' `supports_protocol_v1` flag. It must not be enabled until the destination receiver, source capture, routed network path and end-to-end playback are tested. An HA or Plex outage, missing HD/4K counterpart or failed launch keeps the original device playing.
+## Home Assistant actions
 
-## Handoff protocol for the PowerPlay receiver
+| Action | Purpose |
+| --- | --- |
+| `powerlink.discover_devices` | Show supported entities already connected to Home Assistant. |
+| `powerlink.register_device` | Register or update a device's policy. |
+| `powerlink.open_device` | Execute its wake routine and open PowerPlay without changing playback. |
+| `powerlink.capture_handoff` | Capture current playback from a source and transfer to a destination. |
+| `powerlink.prepare_handoff` / `powerlink.handoff` | Advanced ordered-queue preparation and launch. |
+| `powerlink.powershuffle_list` | Return tracked PowerShuffle show summaries. |
+| `powerlink.powershuffle_manage` | Reset a stopped rotation or clear five-day cooldowns. |
 
-### Preferred lightweight export: Plex queue reference
+Normal device and PowerShuffle setup is available through the UI. The actions above are mainly for dashboards, automation and advanced workflows.
 
-For Plex server-managed queues (shuffled **or** sequential), the PowerPlay 1.3.0 sender should **not** fetch thousands of episodes on the Fire Stick. Instead it sends just its existing Plex queue ID, selected `playQueueItemID`, queue version, current offset and profile:
+## How it stays lightweight and secure
 
-~~~json
-{
-  "schema": 1,
-  "source_device": "media_player.game_room_fire_tv_stick_lite",
-  "profile_id": "plex-home-main",
-  "context_key": "shuffle",
-  "position_ms": 253400,
-  "shuffled": true,
-  "queue_source": {
-    "type": "plex_play_queue",
-    "server_id": "plex-main",
-    "play_queue_id": 701,
-    "selected_item_id": 3002,
-    "version": 5
-  }
-}
-~~~
+- **No LAN scan, extra ADB connection or background Fire TV polling.** The existing Home Assistant integrations handle device communication.
+- **Queue identity is verified.** Episodes are matched using Plex identifiers and season/episode identity, not a title-only guess. HD/4K copies are chosen per destination.
+- **Work stays on Home Assistant.** The complete PowerShuffle rotation, completion history and settings live in Home Assistant's persistent storage. PowerPlay carries only the active playback window and scoped events.
+- **Bounded playback transfers.** Handoff manifests are limited in size, sent in windows (up to 32 entries), and authorized by short-lived per-transfer tokens.
+- **No raw Plex or Home Assistant admin credentials in handoff URLs.** Use HTTPS for externally reachable endpoints; keep pairing and handoff links private.
+- **Failures stay recoverable.** Home Assistant does not count an episode as completed simply because it was queued, and the existing source is not deliberately paused before the destination acknowledges playback.
 
-Home Assistant uses the configured Plex token **for the same Plex account/profile** to GET `/playQueues/701` and reconstruct the entire ordered queue using **multiple bounded, overlapping windows** if Plex caps the response. Every window must have the same queue ID, queue version, total count and shuffle state. Duplicate episodes retain distinct `playQueueItemID` positions. A missing, contradictory or truncated queue, or a wrong Plex identity, aborts without waking or stopping the source. The frozen manifest is served to the destination in batches of at most 32 items.
+PowerLink is a controller, **not a Plex server, a remote-access tunnel, or an ADB replacement**.
 
-This means the Fire Stick's handoff CPU/network cost is approximately constant rather than proportional to the queue length. The full `items` snapshot described below is retained as a fallback for local/non-Plex queues, but the preferred 1.3.0 Plex path is the lightweight queue reference.
+## Releases and development
 
-A PowerPlay 1.3.0 source will provide a **complete ordered queue snapshot** to Home Assistant. Example:
+| Version | Milestone |
+| --- | --- |
+| **[0.3.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.3.0)** | **PowerShuffle**: persistent per-show/profile history, two skip choices, cycles, sensors, configurable global settings and handoff ownership. |
+| [0.2.1](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.1) | Destination wake and screensaver-dismiss reliability. |
+| [0.2.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.0) | Player pairing, device UI and Fire TV-initiated transfers. |
+| **0.1.x · early development** | Initial standalone Home Assistant controller and remote handoff support, before the published 0.2.x releases. |
 
-~~~json
-{
-  "schema": 1,
-  "source_device": "media_player.living_room_fire_tv_stick_4k_plus",
-  "profile_id": "plex-home-main",
-  "context_key": "my-favorites-shuffle",
-  "current_index": 1,
-  "position_ms": 253400,
-  "shuffled": true,
-  "items": [
-    {
-      "kind": "episode", "title": "Episode 3", "guid": "plex://episode/example3",
-      "server_id": "plex-main", "rating_key": "456",
-      "show_guid": "plex://show/example", "show_title": "My Series",
-      "season": 1, "episode": 3,
-      "copies": [
-        {"server_id": "plex-main", "rating_key": "456",
-         "guid": "plex://episode/example3", "height": 2160,
-         "bitrate_kbps": 25000, "library_title": "TV Shows [4K]"}
-      ]
-    },
-    {
-      "kind": "episode", "title": "Episode 8", "guid": "plex://episode/example8",
-      "server_id": "plex-main", "rating_key": "789",
-      "show_guid": "plex://show/example", "show_title": "My Series",
-      "season": 1, "episode": 8,
-      "copies": [
-        {"server_id": "plex-main", "rating_key": "789",
-         "guid": "plex://episode/example8", "height": 1080,
-         "bitrate_kbps": 8000, "library_title": "TV Shows"}
-      ]
-    }
-  ]
-}
-~~~
+PowerLink is maintained separately from the [PowerPlay Fire TV app](https://github.com/The-Power-0/PowerPlay). Use [Latest releases](https://github.com/The-Power-0/PowerLink/releases/latest) for the current HACS integration.
 
-The controller accepts the snapshot through `powerlink.prepare_handoff` (returns an opaque handoff link without waking a device) or, **once a verified 1.3.0 receiver exists**, `powerlink.handoff` (wakes the destination and launches the prepared link).
+Local validation:
 
-The receiver will handle a `powerplay://powerlink?v=1&base=<url>&token=<secret>` intent and GET:
-
-`<base>/api/powerlink/v1/session/<token>?start=<index>&count=<1..32>`
-
-The response preserves the original `current_index`, `position_ms`, `shuffled`, `total` and indexed `items`. The receiver must build an **external, server-provided local queue**, not ask Plex to reshuffle or recreate a new queue. It should fetch more indexed windows as playback advances. Unavailable items are retained with `status: unavailable` and must show a recoverable playback error rather than silently jumping to another episode.
-
-After opening and seeking successfully, the receiver POSTs `{"status":"started"}` to `.../session/<token>/ack`. If it cannot play, POST `{"status":"failed"}`. HA emits `powerlink_handoff_acknowledged` with the source, destination and outcome. The source should stop **only after a verified playback-start acknowledgment**, via a separately configured automation/policy.
-
-### Security and performance boundaries
-
-- Snapshot capped at 2 MB and 5,000 entries; on-demand windows capped at 32 and Plex lookup concurrency capped at 3.
-- Transfer capability tokens are cryptographically random and held in RAM for up to 12 hours; they expire on Home Assistant restart. Anyone who has the token can fetch that **one** queue. Use HTTPS for public/cross-network access, keep tokens out of dashboards, logs and publicly exposed scripts, and do not share raw action responses.
-- Plex tokens are used only by Home Assistant's Plex resolver, sent in request headers, and never included in deep links, app messages or transfer responses.
-- The `handoff` action refuses to launch on clients not marked `supports_protocol_v1`. Do not mark a device ready until a v1.3.0+ receiver has actually been deployed and tested.
-- The optional Plex resolver is a conservative *targeted* `/library/all` lookup; it will never match unrelated media on title alone. Server-specific Plex naming/metadata differences may require later refinements and additional fixture tests.
-
-## Development and release status
-
-This repository now contains the independent **PowerLink Home Assistant integration**. The initial sources and tests were migrated from [PowerPlay staging PR #39](https://github.com/The-Power-0/PowerPlay/pull/39). Development and issues for this integration belong here; the Flutter APK is maintained separately in [PowerPlay](https://github.com/The-Power-0/PowerPlay).
-
-**0.1.0** established the Home Assistant-side controller and Home Assistant-initiated handoff; **0.2.0** is currently in [PowerLink PR #11](https://github.com/The-Power-0/PowerLink/pull/11), paired with [PowerPlay 1.3.7 PR #48](https://github.com/The-Power-0/PowerPlay/pull/48). PowerPlay **1.3.6** is the existing stable baseline. Automated integration and Flutter tests are not substitutes for pairing, D-pad navigation, and 4K↔1080p end-to-end tests on physical Fire Sticks. Both PRs remain drafts until those checks are completed.
-
-For local checks:
-
-```bash
+~~~bash
 python -m compileall -q custom_components/powerlink tests
 python -m unittest discover -s tests -p 'test_*.py' -v
-```
+~~~
 
-GitHub Actions runs the same checks on changes to this repository. Once app compatibility and real Fire TV transfers are validated, create an independent PowerLink release tag for HACS.
+GitHub Actions validates changes before release. Automated tests cannot prove the behavior of every physical Fire Stick, HDMI chain, custom wake routine or Plex library mapping.
 
 ## License
 
-PowerLink is licensed under the [GNU General Public License v3](LICENSE). The PowerPlay app is a separate project with independent releases and its own license and upstream credits.
+PowerLink is distributed under the [GNU General Public License v3](LICENSE). PowerPlay is a separate project with independent releases, attribution and source archives.
+
+<div align="center">
+
+**PowerLink + PowerPlay**
+
+*Start in one room. Continue in another. Make every shuffle count.*
+
+[PowerPlay](https://github.com/The-Power-0/PowerPlay) · [Latest PowerLink](https://github.com/The-Power-0/PowerLink/releases/latest) · [Report an issue](https://github.com/The-Power-0/PowerLink/issues)
+
+</div>
