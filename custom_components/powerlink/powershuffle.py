@@ -264,6 +264,8 @@ class PowerShuffleManager:
             state["position_ms"] = 0
             state["last_activity"] = now
             state["last_heartbeat"] = 0
+            state["pending_destination"] = ""
+            state["pending_since"] = 0
             state["coverage_episode"] = ""
             state["coverage"] = []
             result = self._queue_reply(state, now)
@@ -666,6 +668,8 @@ class PowerShuffleManager:
             state["session_id"] = ""
             state["owner"] = ""
             state["playing"] = False
+            state["pending_destination"] = ""
+            state["pending_since"] = 0
             state["queue"] = []
             await self._save()
             return self._summary(state, now)
