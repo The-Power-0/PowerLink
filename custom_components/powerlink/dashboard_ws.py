@@ -87,6 +87,29 @@ async def ws_show_details(hass, connection, msg):
 
 
 @websocket_api.websocket_command({
+    vol.Required("type"): "powerlink/show_artwork",
+    vol.Required("show_id"): str,
+})
+@websocket_api.async_response
+async def ws_show_artwork(hass, connection, msg):
+    """Fetch one show poster through HA, never through the Fire Sticks."""
+    controller = _controller(hass)
+    if controller is None:
+        connection.send_error(msg["id"], "not_ready", "PowerLink is not configured")
+        return
+    if controller.dashboard_posters is None:
+        connection.send_result(msg["id"], {"available": False})
+        return
+    try:
+        identity = await controller.powershuffle.dashboard_identity(msg["show_id"])
+    except HandoffError:
+        connection.send_error(msg["id"], "not_found", "Unknown PowerShuffle show")
+        return
+    result = await controller.dashboard_posters.poster(msg["show_id"], **identity)
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({
     vol.Required("type"): "powerlink/subscribe_dashboard",
 })
 @websocket_api.async_response
@@ -156,3 +179,4 @@ def async_register(hass) -> None:
     websocket_api.async_register_command(hass, ws_dashboard)
     websocket_api.async_register_command(hass, ws_show_details)
     websocket_api.async_register_command(hass, ws_subscribe_dashboard)
+    websocket_api.async_register_command(hass, ws_show_artwork)
