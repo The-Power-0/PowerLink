@@ -666,6 +666,16 @@ class PowerShuffleManager:
                 "shows": shows,
             }
 
+    async def dashboard_identity(self, dashboard_id: str) -> dict:
+        """Lookup identity for an authenticated, on-demand artwork request."""
+        async with self._lock:
+            state = self._by_dashboard_id(dashboard_id)
+            return {
+                "title": state["title"],
+                "guid": state["show_guid"],
+                "server_id": state["server_id"],
+            }
+
     async def dashboard_details(
         self, dashboard_id: str, *, offset: int = 0, limit: int = 50,
     ) -> dict:
