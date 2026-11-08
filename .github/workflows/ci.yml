@@ -49,5 +49,9 @@ jobs:
           assert Path("LICENSE").exists()
           assert not Path("powerlink/custom_components").exists()
           PY
-      - name: Verify approved vector and optimized Home Assistant branding\n        run: |\n          python -m pip install --disable-pip-version-check 'CairoSVG==2.8.2' 'Pillow==12.3.0'\n          python scripts/branding/render_powerlink.py --verify\n      - name: Run source policy, queue identity, quality and device tests
+      - name: Verify approved vector and optimized Home Assistant branding
+        run: |
+          python -m pip install --disable-pip-version-check 'CairoSVG==2.8.2' 'Pillow==12.3.0'
+          python scripts/branding/render_powerlink.py --verify
+      - name: Run source policy, queue identity, quality and device tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
