@@ -1,14 +1,16 @@
-name: PowerLink 1.0.0 HACS Release Candidate (unpublished)
+name: PowerLink 1.0.2 HACS Release Candidate (unpublished)
 on:
   push:
     branches:
-      - 'branding/powerlink-v1.0.0-review'
+      - 'branding/powerlink-v1.0.2-approved-svg'
+    paths:
+      - 'custom_components/powerlink/brand/**'
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   package:
-    if: github.ref == 'refs/heads/branding/powerlink-v1.0.0-review'
+    if: github.ref == 'refs/heads/branding/powerlink-v1.0.2-approved-svg'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -20,6 +22,10 @@ jobs:
         run: |
           python -m compileall -q custom_components/powerlink tests
           python -m unittest discover -s tests -p 'test_*.py' -q
+      - name: Verify the SVG master and brand exports
+        run: |
+          python -m pip install --disable-pip-version-check 'CairoSVG==2.8.2' 'Pillow==12.3.0'
+          python scripts/branding/render_powerlink.py --verify
       - name: Package exactly the reviewed integration, branding and license
         run: |
           python - <<'PY'
@@ -28,24 +34,29 @@ jobs:
           from zipfile import ZipFile,ZIP_DEFLATED
           base=Path('custom_components/powerlink')
           info=json.loads((base/'manifest.json').read_text())
-          assert info['version']=='1.0.0',info['version']
+          assert info['version']=='1.0.2',info['version']
           brand=base/'brand'
           for n in ('icon.png','icon@2x.png','dark_icon.png','dark_icon@2x.png','logo.png','logo@2x.png','dark_logo.png','dark_logo@2x.png'):
-              assert (brand/n).read_bytes().startswith(b'\x89PNG\r\n\x1a\n'),n
+              assert (brand/n).read_bytes().startswith(b'\x89PNG\r
+\x1a
+'),n
           release=Path('powerlink-candidate')
           release.mkdir(exist_ok=True)
-          target=release/'PowerLink-v1.0.0-rc1.zip'
+          target=release/'PowerLink-v1.0.2-rc1.zip'
           sources=list(base.rglob('*'))
           source_files=[p for p in sources if p.is_file() and '__pycache__' not in p.parts and p.suffix!='.pyc']
-          extras=[Path('README.md'),Path('LICENSE'),Path('.github/powerlink/release-notes/v1.0.0.md')]
+          extras=[Path('README.md'),Path('LICENSE'),Path('.github/powerlink/release-notes/v1.0.2.md')]
           with ZipFile(target,'w',ZIP_DEFLATED,compresslevel=9) as z:
               for p in source_files+extras:z.write(p,p.as_posix())
-          (release/'SHA256SUMS.txt').write_text(hashlib.sha256(target.read_bytes()).hexdigest()+'  '+target.name+'\n')
-          (release/'STATUS.txt').write_text('PowerLink v1.0.0 release candidate\nUNPUBLISHED — REQUIRES EXPLICIT REVIEW AND APPROVAL\n')
+          (release/'SHA256SUMS.txt').write_text(hashlib.sha256(target.read_bytes()).hexdigest()+'  '+target.name+'
+')
+          (release/'STATUS.txt').write_text('PowerLink v1.0.2 release candidate
+UNPUBLISHED — REQUIRES EXPLICIT REVIEW AND APPROVAL
+')
           print(target, target.stat().st_size, len(source_files), 'integration files')
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: PowerLink-v1.0.0-rc1-Review
+          name: PowerLink-v1.0.2-rc1-Review
           path: powerlink-candidate/
           if-no-files-found: error
