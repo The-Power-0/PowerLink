@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="400" viewBox="0 0 1440 400"><svg x="0" y="14" width="370" height="370" viewBox="0 0 1000 1000"><title xmlns="http://www.w3.org/2000/svg">PowerLink — exact PowerPlay lightning bolt, diagonal blue-to-silver fade</title>
+<desc xmlns="http://www.w3.org/2000/svg">Preserved seven-vertex PowerPlay v10 bolt with blue at upper right and an angled blue/cyan/silver gradient descending toward lower left. Taller white left and electric-blue right C links use parallel cut faces at equal perpendicular spacing, with consistent band thickness and no rear circle.</desc>
+<defs xmlns="http://www.w3.org/2000/svg">
+ <linearGradient id="metalSilver" x1="105" y1="305" x2="468" y2="690" gradientUnits="userSpaceOnUse">
+  <stop stop-color="#FFFFFF" /><stop offset=".23" stop-color="#F8FCFF" /><stop offset=".54" stop-color="#E6EEFC" /><stop offset=".78" stop-color="#BFCBE8" /><stop offset="1" stop-color="#FCFEFF" />
+ </linearGradient>
+ <linearGradient id="silverSpec" x1="100" y1="310" x2="420" y2="685" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFF" stop-opacity=".93" /><stop offset=".49" stop-color="#DBE8FF" stop-opacity=".58" /><stop offset="1" stop-color="#AAC1ED" stop-opacity=".62" /></linearGradient>
+ <linearGradient id="linkBlue" x1="685" y1="310" x2="900" y2="690" gradientUnits="userSpaceOnUse">
+  <stop stop-color="#26FFFF" /><stop offset=".20" stop-color="#00E4FF" /><stop offset=".48" stop-color="#058EFA" /><stop offset=".79" stop-color="#126AF9" /><stop offset="1" stop-color="#0A52E8" />
+ </linearGradient>
+ <linearGradient id="rightLight" x1="713" y1="311" x2="942" y2="710" gradientUnits="userSpaceOnUse"><stop stop-color="#E5FFFF" stop-opacity=".91" /><stop offset=".31" stop-color="#63EFFF" stop-opacity=".76" /><stop offset=".71" stop-color="#42A9FF" stop-opacity=".63" /><stop offset="1" stop-color="#B6CFFF" stop-opacity=".80" /></linearGradient>
+ 
+ <linearGradient id="boltBlueFromUpperRight" x1="590" y1="490" x2="271" y2="1004" gradientUnits="userSpaceOnUse">
+  <stop offset="0" stop-color="#0A62F3" /><stop offset=".16" stop-color="#058BFF" /><stop offset=".34" stop-color="#00D9F8" /><stop offset=".53" stop-color="#1BEAF8" /><stop offset=".73" stop-color="#D5F0FF" /><stop offset=".91" stop-color="#F1F7FF" /><stop offset="1" stop-color="#FFFFFF" />
+ </linearGradient>
+ <linearGradient id="boltChromeRim" x1="590" y1="490" x2="271" y2="1004" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#B3DFFF" /><stop offset=".28" stop-color="#4FF5FF" /><stop offset=".57" stop-color="#C4FCFF" /><stop offset=".80" stop-color="#FFFFFF" /><stop offset="1" stop-color="#DAEAFF" /></linearGradient>
+ <linearGradient id="energyLine" x1="155" y1="488" x2="925" y2="525" gradientUnits="userSpaceOnUse"><stop stop-color="#00DCFF" stop-opacity="0" /><stop offset=".24" stop-color="#02E5FF" stop-opacity=".48" /><stop offset=".58" stop-color="#28BDFF" stop-opacity=".34" /><stop offset=".85" stop-color="#117AFF" stop-opacity=".43" /><stop offset="1" stop-color="#0971F3" stop-opacity="0" /></linearGradient>
+ <linearGradient id="tileBackground" x1="60" y1="70" x2="945" y2="945" gradientUnits="userSpaceOnUse"><stop stop-color="#04102F" /><stop offset=".56" stop-color="#030923" /><stop offset="1" stop-color="#0A0A2D" /></linearGradient>
+ <linearGradient id="tileRim" x1="55" y1="85" x2="940" y2="936" gradientUnits="userSpaceOnUse"><stop stop-color="#01F9FF" /><stop offset=".58" stop-color="#127AFF" /><stop offset="1" stop-color="#2772F9" /></linearGradient>
+ <path id="powerplay-v10-exact-bolt" d="M 485 490 L 590 490 L 517 594 L 620 594 L 271 1004 L 427 708 L 338 708 Z" />
+ <path id="left-link" d="M 255.000000000 310.000000000 H 419.126371557 L 365.181417429 390.000000000 H 255.000000000 A 110.000000000 110.000000000 0 0 0 255.000000000 610.000000000 H 365.345656134 L 323.183493972 690.000000000 H 255.000000000 A 190.000000000 190.000000000 0 0 1 255.000000000 310.000000000 Z" />
+ <path id="right-link" d="M 748.790417252 310.000000000 H 795.000000000 A 190.000000000 190.000000000 0 0 1 795.000000000 690.000000000 H 425.327002618 L 493.424563594 610.000000000 H 795.000000000 A 110.000000000 110.000000000 0 0 0 795.000000000 390.000000000 H 680.692856277 Z" />
+</defs>
+<g xmlns="http://www.w3.org/2000/svg" id="energy" fill="none" stroke="url(#energyLine)" stroke-linecap="round">
+ <path d="M 158 470 C 296 426 428 497 516 495 C 646 491 779 446 855 471" stroke-width="1.75" opacity=".27" />
+ <path d="M 158 536 C 287 572 405 528 516 518 C 689 509 740 551 872 529" stroke-width="1.65" opacity=".20" />
+</g>
+<g xmlns="http://www.w3.org/2000/svg" id="precise-capsule-links">
+ <use href="#left-link" fill="none" stroke="#E1EBFF" stroke-width="12" stroke-opacity=".055" />
+ <use href="#right-link" fill="none" stroke="#1D91FF" stroke-width="12" stroke-opacity=".075" />
+ <use href="#left-link" fill="url(#metalSilver)" stroke="#F8FCFF" stroke-width="1.55" stroke-linejoin="round" />
+ <use href="#right-link" fill="url(#linkBlue)" stroke="#83EFFF" stroke-width="1.55" stroke-linejoin="round" />
+ <path d="M 255.000000000 313.000000000 H 415.126371557 M 255.000000000 687.000000000 H 319.183493972" fill="none" stroke="url(#silverSpec)" stroke-width="1.6" stroke-linecap="round" opacity=".70" />
+ <path d="M 751.790417252 313.000000000 H 795.000000000 A 187.000000000 187.000000000 0 0 1 982.000000000 500.000000000 M 428.327002618 687.000000000 H 795.000000000" fill="none" stroke="url(#rightLight)" stroke-width="1.6" stroke-linecap="round" opacity=".76" />
+</g>
+
+<g xmlns="http://www.w3.org/2000/svg" id="powerplay-bolt" transform="translate(-114.790000000 -531.200000000) scale(1.380000000)">
+ <use href="#powerplay-v10-exact-bolt" fill="none" stroke="#007BFF" stroke-width="10" stroke-opacity=".083" stroke-linejoin="round" />
+ <use href="#powerplay-v10-exact-bolt" fill="url(#boltBlueFromUpperRight)" stroke="url(#boltChromeRim)" stroke-width="2.15" stroke-linejoin="round" />
+</g>
+</svg><text x="433" y="223" font-family="DejaVu Sans,Arial,sans-serif" font-style="italic" font-weight="900" font-size="115" letter-spacing="-5" fill="#FFFFFF">Power</text><text x="880" y="223" font-family="DejaVu Sans,Arial,sans-serif" font-style="italic" font-weight="900" font-size="115" letter-spacing="-5" fill="#09C6FF">Link</text></svg>

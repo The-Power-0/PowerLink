@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/brand/powerlink-banner.svg" alt="PowerLink logo" width="720" />
+<img src="assets/brand/powerlink-banner.svg" alt="PowerLink logo — approved silver/blue links and blue-to-silver lightning bolt" width="720" />
 
 # PowerLink
 
@@ -42,7 +42,7 @@ PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. 
 
 | Component | Version |
 | --- | --- |
-| **PowerLink HACS integration** | **[1.0.0](https://github.com/The-Power-0/PowerLink/releases/tag/v1.0.0)** — refreshed brand and integration milestone |
+| **PowerLink HACS integration** | **[1.0.2](https://github.com/The-Power-0/PowerLink/releases/tag/v1.0.2)** — approved Wave + Circuit branding, lossless integration assets |
 | **PowerPlay Fire TV app** | **[2.0.0](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v2.0.0)**; existing 1.4.0+ PowerShuffle compatibility remains |
 | **Home Assistant** | 2025.12.0 or later |
 | **Deployment** | Home Assistant Container is supported — no Supervisor add-on store required |

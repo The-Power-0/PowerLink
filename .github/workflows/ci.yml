@@ -34,7 +34,7 @@ jobs:
           translations = json.loads((base / "translations/en.json").read_text())
           url = "https://github.com/The-Power-0/PowerLink"
           assert meta["domain"] == "powerlink"
-          assert meta["version"] == "1.0.0"
+          assert meta["version"] == "1.0.2"
           assert meta["config_flow"] is True
           assert meta["documentation"] == url
           assert meta["issue_tracker"] == url + "/issues"
@@ -49,5 +49,9 @@ jobs:
           assert Path("LICENSE").exists()
           assert not Path("powerlink/custom_components").exists()
           PY
+      - name: Verify approved vector and optimized Home Assistant branding
+        run: |
+          python -m pip install --disable-pip-version-check 'CairoSVG==2.8.2' 'Pillow==12.3.0'
+          python scripts/branding/render_powerlink.py --verify
       - name: Run source policy, queue identity, quality and device tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
