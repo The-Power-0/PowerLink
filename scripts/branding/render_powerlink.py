@@ -80,9 +80,9 @@ def lockup(master: bytes, *, banner: bool) -> str:
             f'<svg xmlns="{NS}" width="1920" height="560" viewBox="0 0 1920 560">'
             f'{frame}<svg x="24" y="24" width="500" height="500" viewBox="0 0 1000 1000">'
             f'{inner_content(master)}</svg>'
-            '<path d="M565 115 V442" stroke="#177BFB" stroke-width="3" opacity=".7"/>'
-            '<text x="611" y="302" font-family="DejaVu Sans,Arial,sans-serif" font-size="157" font-weight="900" font-style="italic" letter-spacing="-6" fill="white">POWER</text>'
-            '<text x="1220" y="302" font-family="DejaVu Sans,Arial,sans-serif" font-size="157" font-weight="900" font-style="italic" letter-spacing="-6" fill="#09C6FF">LINK</text>'
+            '<path d="M565 115 V442" stroke="#177BFB" stroke-width="3" opacity=".7"/>\n'
+            '<text x="611" y="302" font-family="DejaVu Sans,Arial,sans-serif" font-size="157" font-weight="900" font-style="italic" letter-spacing="-6" fill="white">POWER</text>\n'
+            '<text x="1220" y="302" font-family="DejaVu Sans,Arial,sans-serif" font-size="157" font-weight="900" font-style="italic" letter-spacing="-6" fill="#09C6FF">LINK</text>\n'
             '<text x="659" y="391" font-family="DejaVu Sans,Arial,sans-serif" font-size="36" letter-spacing="6" fill="#C4D5F4">MEDIA  •  DEVICES  •  HANDOFF</text>'
             '</svg>'
         )
