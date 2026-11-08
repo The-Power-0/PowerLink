@@ -1,0 +1,79 @@
+{
+  "repository": "The-Power-0/PowerLink",
+  "confirm": "ARCHIVE_STALE_BRANCHES_2026_11",
+  "retained_branches": [
+    "main",
+    "docs/handoff-ack-source-pause-v1.3.6",
+    "maintenance/retire-obsolete-workflows-2026-11"
+  ],
+  "branches": [
+    {
+      "name": "branding/powerlink-v1.0.0-review",
+      "sha": "cea61e4b40b0bbbf7e6522471a00f6049df57e2a"
+    },
+    {
+      "name": "branding/powerlink-v1.0.0",
+      "sha": "3d39a7775e911a862b4ad27cb2a978edbcff1bce"
+    },
+    {
+      "name": "branding/powerlink-v1.0.2-approved-svg",
+      "sha": "13fffbd2848410efeaaa3410624e3f7c3f47ffe9"
+    },
+    {
+      "name": "docs/readme-powershuffle-0.3",
+      "sha": "94e36543670879befd61d80cc93d0434e442fc98"
+    },
+    {
+      "name": "feature/native-device-manager-ui",
+      "sha": "450acdf936452deedf44175f85228d787958b048"
+    },
+    {
+      "name": "feature/player-initiated-handoff-1.3.7",
+      "sha": "3610a8d148755f5ba9076a16ea672e5dc0e2d629"
+    },
+    {
+      "name": "feature/powershuffle-dashboard-0.4.0",
+      "sha": "33fb1b0c2047a3eb050e4f6d011fc6a1bdd1ddf1"
+    },
+    {
+      "name": "feature/powershuffle-dashboard-launch",
+      "sha": "cfd1b85c417dc78c3b28540f82cbeca3ff8eb8a8"
+    },
+    {
+      "name": "feature/powershuffle-v1",
+      "sha": "4af27116301064e6d034b185263f47e3aeadc4d8"
+    },
+    {
+      "name": "fix/adaptive-plex-queue-windows",
+      "sha": "d9f32d71e2d7beeeb4c8ec47ebd99bfe065c1da0"
+    },
+    {
+      "name": "fix/adb-launch-plex-queue-diagnostics",
+      "sha": "09f10d1eed8f09685bc334721443d4137474c457"
+    },
+    {
+      "name": "fix/block-on-wake-script-completion",
+      "sha": "56bbd027250a57faefc0ff05b93884f9aa4dc01e"
+    },
+    {
+      "name": "fix/hacs-ui-translations",
+      "sha": "8594e70beee4a7f4be856f2c43b2ebde1a2378e1"
+    },
+    {
+      "name": "fix/powerlink-destination-wake-handoff",
+      "sha": "6c6924b67c67c57a8510edb50cfe4fc609619a62"
+    },
+    {
+      "name": "fix/powerlink-pause-source-on-ack",
+      "sha": "d544922304707b0f372bab231156fb6ea0c35a36"
+    },
+    {
+      "name": "fix/powerlink-queue-artwork-metadata",
+      "sha": "0ee55b66e3137d6a504e00289f26d1867b7a4588"
+    },
+    {
+      "name": "migration/standalone-hacs",
+      "sha": "d28509349222225430059f20c9cb2dfb6f59a1e3"
+    }
+  ]
+}
