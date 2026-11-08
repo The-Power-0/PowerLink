@@ -17,7 +17,6 @@
 
 </div>
 
-
 ---
 
 ## Start here
@@ -25,17 +24,11 @@
 PowerLink is the **Home Assistant companion** for [PowerPlay](https://github.com/The-Power-0/PowerPlay). It handles device control, PowerShuffle history and verified handoffs so your Fire TVs can focus on playback.
 
 | Goal | Start with |
-
 | --- | --- |
-
 | Install the integration | [HACS setup](#installation). |
-
 | Enable smarter episode rotation | [PowerShuffle](#powershuffle). |
-
 | Connect another Fire TV | [Device registration](#registering-your-fire-tvs) and [pairing](#pair-powerplay-with-home-assistant). |
-
 | Continue playback in another room | [Handoffs](#powerlink-handoffs). |
-
 | Build a dashboard or automation | [Dashboard API](#dashboards--integrations) and [actions](#home-assistant-actions). |
 
 ## What PowerLink does
