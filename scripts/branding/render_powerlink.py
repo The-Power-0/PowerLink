@@ -148,6 +148,12 @@ def main() -> None:
         ET.fromstring(content.encode("utf-8"))
         if args.verify:
             if not path.is_file() or path.read_text(encoding="utf-8") != content:
+                import difflib
+                old = path.read_text(encoding="utf-8") if path.is_file() else ""
+                diff = "".join(difflib.unified_diff(old.splitlines(keepends=True),
+                    content.splitlines(keepends=True), fromfile="committed",
+                    tofile="generated"))
+                print("Derived SVG mismatch:\n" + diff[:6000], file=sys.stderr)
                 raise AssertionError(f"Derived SVG is not current: {path}")
         else:
             path.parent.mkdir(parents=True, exist_ok=True)
