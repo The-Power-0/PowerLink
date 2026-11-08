@@ -1,0 +1,29 @@
+name: Archive approved stale branches
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/maintenance/stale-branches-2026-11.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: stale-branch-archive-2026-11
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Save branch tags before deleting obsolete refs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE_APPLY: 'true'
+        run: python3 .github/maintenance/archive_stale_branches.py
