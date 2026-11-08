@@ -75,5 +75,6 @@
       "name": "migration/standalone-hacs",
       "sha": "d28509349222225430059f20c9cb2dfb6f59a1e3"
     }
-  ]
+  ],
+  "retry_revision": 2
 }
