@@ -72,6 +72,20 @@ def lockup(master: bytes, *, banner: bool) -> str:
     link_x = 1177 if banner else 880
     caption = (f'<text x="{title_x+6}" y="405" font-family="DejaVu Sans,Arial,sans-serif" '
                'font-size="33" letter-spacing="6" fill="#B8CFF6">MEDIA   •   DEVICES   •   HANDOFF</text>') if banner else ""
+    # The public README banner uses the approved uppercase POWERLINK treatment.
+    # Keep it generated from the same approved glyph, but do not silently
+    # replace the reviewed banner with the older mixed-case lockup.
+    if banner:
+        return (
+            f'<svg xmlns="{NS}" width="1920" height="560" viewBox="0 0 1920 560">'
+            f'{frame}<svg x="24" y="24" width="500" height="500" viewBox="0 0 1000 1000">'
+            f'{inner_content(master)}</svg>'
+            '<path d="M565 115 V442" stroke="#177BFB" stroke-width="3" opacity=".7"/>'
+            '<text x="611" y="302" font-family="DejaVu Sans,Arial,sans-serif" font-size="157" font-weight="900" font-style="italic" letter-spacing="-6" fill="white">POWER</text>'
+            '<text x="1220" y="302" font-family="DejaVu Sans,Arial,sans-serif" font-size="157" font-weight="900" font-style="italic" letter-spacing="-6" fill="#09C6FF">LINK</text>'
+            '<text x="659" y="391" font-family="DejaVu Sans,Arial,sans-serif" font-size="36" letter-spacing="6" fill="#C4D5F4">MEDIA  •  DEVICES  •  HANDOFF</text>'
+            '</svg>'
+        )
     return (f'<svg xmlns="{NS}" width="{width}" height="{height}" viewBox="0 0 {width} {height}">'
       f'{frame}<svg x="{x}" y="{y}" width="{emblem_size}" height="{emblem_size}" viewBox="0 0 1000 1000">'
       f'{inner_content(master)}</svg>'
