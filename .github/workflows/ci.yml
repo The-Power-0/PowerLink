@@ -26,6 +26,7 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import re
           from pathlib import Path
           base = Path("custom_components/powerlink")
           meta = json.loads((base / "manifest.json").read_text())
@@ -34,7 +35,8 @@ jobs:
           translations = json.loads((base / "translations/en.json").read_text())
           url = "https://github.com/The-Power-0/PowerLink"
           assert meta["domain"] == "powerlink"
-          assert meta["version"] == "1.0.2"
+          assert re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+", meta["version"])
+          assert Path(f".github/powerlink/release-notes/v{meta[\'version\']}.md").is_file()
           assert meta["config_flow"] is True
           assert meta["documentation"] == url
           assert meta["issue_tracker"] == url + "/issues"
