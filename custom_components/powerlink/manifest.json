@@ -1,18 +1,21 @@
 {
   "domain": "powerlink",
   "name": "PowerLink",
-  "version": "1.0.2",
-  "documentation": "https://github.com/The-Power-0/PowerLink",
-  "issue_tracker": "https://github.com/The-Power-0/PowerLink/issues",
-  "codeowners": [
-    "@The-Power-0"
-  ],
-  "requirements": [],
-  "config_flow": true,
-  "integration_type": "hub",
-  "iot_class": "local_push",
   "after_dependencies": [
     "androidtv"
   ],
-  "single_config_entry": true
+  "categories": [
+    "media_entertainment.tv_streaming"
+  ],
+  "codeowners": [
+    "@The-Power-0"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/The-Power-0/PowerLink",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/The-Power-0/PowerLink/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.2"
 }
