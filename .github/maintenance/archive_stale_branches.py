@@ -18,7 +18,7 @@ def call(repo, path, method="GET", payload=None, missing=False):
                "Authorization": "Bearer " + os.environ["GH_TOKEN"]}
     if data is not None:
         headers["Content-Type"] = "application/json"
-    request = Request(API + repo + "/" + path, data=data, headers=headers, method=method)
+    request = Request(API + repo + ("/" + path if path else ""), data=data, headers=headers, method=method)
     try:
         with urlopen(request, timeout=30) as response:
             return None if response.status == 204 else json.load(response)
