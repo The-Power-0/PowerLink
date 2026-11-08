@@ -158,7 +158,7 @@
       },
       "wake_steps": {
         "title": "Advanced wake routine",
-        "description": "Edit the ordered wake_steps list for {device}. Each step can be a Home Assistant service, delay, or wait_state operation. Validation and time limits apply; an empty list disables wake steps. Direct script.<name> service calls wait for completion; script.turn_on does not.",
+        "description": "Edit the ordered wake_steps list for {device}. Each step can be a Home Assistant service, delay, or wait_state operation. Validation and time limits apply; an empty list disables wake steps. Direct script.example service calls wait for completion; script.turn_on does not.",
         "data": {
           "wake_steps": "Wake steps"
         }
