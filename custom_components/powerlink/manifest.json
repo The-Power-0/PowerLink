@@ -4,6 +4,9 @@
   "after_dependencies": [
     "androidtv"
   ],
+  "categories": [
+    "media_entertainment.tv_streaming"
+  ],
   "codeowners": [
     "@The-Power-0"
   ],
