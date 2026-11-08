@@ -13,13 +13,32 @@
 
 *An independent, open-source Home Assistant integration built for [PowerPlay](https://github.com/The-Power-0/PowerPlay).*
 
-[Install](#installation) · [PowerShuffle](#powershuffle) · [Dashboard API](#powerlink-040-dashboard-backend) · [Device setup](#registering-your-fire-tvs) · [Pairing](#pair-powerplay-with-home-assistant) · [Handoffs](#powerlink-handoffs) · [Automation](#home-assistant-actions)
+[Install](#installation) · [PowerShuffle](#powershuffle) · [Devices](#registering-your-fire-tvs) · [Handoffs](#powerlink-handoffs) · [Dashboards](#dashboards--integrations) · [Actions](#home-assistant-actions)
 
 </div>
 
+
 ---
 
-## One integration. Two ways to watch.
+## Start here
+
+PowerLink is the **Home Assistant companion** for [PowerPlay](https://github.com/The-Power-0/PowerPlay). It handles device control, PowerShuffle history and verified handoffs so your Fire TVs can focus on playback.
+
+| Goal | Start with |
+
+| --- | --- |
+
+| Install the integration | [HACS setup](#installation). |
+
+| Enable smarter episode rotation | [PowerShuffle](#powershuffle). |
+
+| Connect another Fire TV | [Device registration](#registering-your-fire-tvs) and [pairing](#pair-powerplay-with-home-assistant). |
+
+| Continue playback in another room | [Handoffs](#powerlink-handoffs). |
+
+| Build a dashboard or automation | [Dashboard API](#dashboards--integrations) and [actions](#home-assistant-actions). |
+
+## What PowerLink does
 
 PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. PowerPlay stays focused on the player and Fire TV remote; Home Assistant handles devices, wake routines, queue transfer and PowerShuffle history.
 
@@ -38,6 +57,9 @@ PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. 
 
 </div>
 
+<details>
+<summary><strong>Current release and compatibility details</strong></summary>
+
 ### Release compatibility
 
 | Component | Version |
@@ -49,11 +71,38 @@ PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. 
 
 The ordinary PowerLink handoff features also work with earlier compatible PowerPlay builds. **PowerShuffle specifically requires the 0.3.0 / 1.4.0 combination or later.**
 
+</details>
+
+## Installation
+
+### 1. Install PowerLink using HACS
+
+1. In Home Assistant, open **HACS → Custom repositories**.
+2. Add `https://github.com/The-Power-0/PowerLink` and select **Integration** as the repository type.
+3. Install the [latest stable release](https://github.com/The-Power-0/PowerLink/releases/latest), then **restart Home Assistant**.
+4. Go to **Settings → Devices & Services → Add integration → PowerLink**.
+
+For a manual installation, copy the `custom_components/powerlink` folder into `/config/custom_components/powerlink` and restart Home Assistant. Installation does not require a separate database, MQTT broker or additional ADB server.
+
+<details>
+<summary><strong>Connectivity, networking and manual installation notes</strong></summary>
+
+### 2. Configure connectivity
+
+Provide the **Home Assistant base URL** that each Fire Stick can reach, such as a private LAN URL or an HTTPS URL reachable over an existing routed network. PowerLink can optionally use configured Plex server credentials for **targeted matching** of HD and 4K copies.
+
+A reachable URL is required for the PowerPlay app to contact Home Assistant. PowerLink **does not create VPNs, public tunnels or firewall rules** for you.
+
+</details>
+
 ## PowerShuffle
 
 **Watch a show in a new order without immediately repeating episodes you've already completed in PowerShuffle.**
 
 PowerShuffle is an opt-in action on a Plex show's detail page in PowerPlay. Each Plex profile gets its own rotation, separate from Plex watched/unwatched flags and PowerPlay's existing standard Shuffle feature.
+
+<details>
+<summary><strong>Skip choices, rotation rules and Home Assistant management</strong></summary>
 
 ### Exactly two skip options
 
@@ -95,22 +144,7 @@ response_variable: powershuffle_status
 
 The `powerlink.powershuffle_manage` action is also available for advanced administration. Ordinary users can manage everything from the integration's configuration screens.
 
-## Installation
-
-### 1. Install PowerLink using HACS
-
-1. In Home Assistant, open **HACS → Custom repositories**.
-2. Add `https://github.com/The-Power-0/PowerLink` and select **Integration** as the repository type.
-3. Install the [latest stable release](https://github.com/The-Power-0/PowerLink/releases/latest), then **restart Home Assistant**.
-4. Go to **Settings → Devices & Services → Add integration → PowerLink**.
-
-For a manual installation, copy the `custom_components/powerlink` folder into `/config/custom_components/powerlink` and restart Home Assistant. Installation does not require a separate database, MQTT broker or additional ADB server.
-
-### 2. Configure connectivity
-
-Provide the **Home Assistant base URL** that each Fire Stick can reach, such as a private LAN URL or an HTTPS URL reachable over an existing routed network. PowerLink can optionally use configured Plex server credentials for **targeted matching** of HD and 4K copies.
-
-A reachable URL is required for the PowerPlay app to contact Home Assistant. PowerLink **does not create VPNs, public tunnels or firewall rules** for you.
+</details>
 
 ## Registering your Fire TVs
 
@@ -123,6 +157,9 @@ Open **Settings → Devices & Services → PowerLink → Configure**.
 - **Remove a device:** unregister it from PowerLink without deleting its Home Assistant entity.
 
 **Important:** PowerLink discovers devices **already integrated with Home Assistant**. For a new Fire Stick, configure it in Home Assistant's Android TV / ADB integration first. PowerLink delegates commands to that existing integration and does not open a second ADB session.
+
+<details>
+<summary><strong>Resolution policies and power-on routines</strong></summary>
 
 ### Example resolution policies
 
@@ -146,7 +183,14 @@ Choose the approach that matches how the TV actually turns on:
 
 Scripts are called directly and awaited; failed required wake steps prevent the launch. **Avoid blind power toggles** that might switch off an already-running television or receiver.
 
+</details>
+
 ## Pair PowerPlay with Home Assistant
+
+Each Fire Stick has its own scoped pairing credentials. Pairing is configured in the Home Assistant integration and in **PowerPlay → Settings → PowerLink**.
+
+<details>
+<summary><strong>Step-by-step pairing and credential behavior</strong></summary>
 
 Pair each Fire Stick independently so it can request destinations and handoffs directly from its player controls.
 
@@ -156,6 +200,8 @@ Pair each Fire Stick independently so it can request destinations and handoffs d
 4. Select **Pair**, then refresh the device list. Repeat for any other Fire Sticks.
 
 Each device receives its own scoped credential stored using Android Keystore encryption. Pairing does not require placing a full Home Assistant administrator token on a Fire Stick.
+
+</details>
 
 ## PowerLink handoffs
 
@@ -168,6 +214,9 @@ During Plex playback, open the controls, select the **PowerLink** icon with the 
 PowerLink maintains the original episode order, shuffle state and playback offset for both shuffled and sequential Plex queues. It can also carry the **active PowerShuffle rotation**, including cycle identity and in-progress completion tracking.
 
 Starting the *same active show's PowerShuffle* on another paired Fire Stick can also initiate a handoff automatically.
+
+<details>
+<summary><strong>Home Assistant transfers, YAML examples and direct PowerShuffle launch</strong></summary>
 
 ### Transfer from Home Assistant
 
@@ -223,7 +272,16 @@ pages without putting huge episode lists in Home Assistant entity states.
 Existing per-show sensors and the read-only
 `powerlink.powershuffle_list` action remain supported.
 
-## PowerLink 0.4.0 dashboard backend
+</details>
+
+## Dashboards & integrations
+
+PowerLink exposes a Home Assistant WebSocket API for tracked shows, per-room session state and on-demand artwork or episode history. The browser reads Home Assistant; no new polling work is added to the Fire Sticks.
+
+<a id="powerlink-040-dashboard-backend"></a>
+
+<details>
+<summary><strong>Dashboard backend, WebSocket examples, status semantics and performance</strong></summary>
 
 This release is **Home Assistant only**. **PowerPlay 1.4.0 requires no rebuild**.
 PowerLink remains the single authoritative record for one Plex profile, show,
@@ -301,7 +359,14 @@ library, return Plex tokens, or load poster data on Fire TV.
 - This version exposes the backend for a future custom frontend card. It does
   **not** automatically replace your existing Lovelace dashboard YAML.
 
+</details>
+
 ## Home Assistant actions
+
+Common device, queue and PowerShuffle operations are available as Home Assistant actions; the integration UI handles ordinary setup.
+
+<details>
+<summary><strong>Full Home Assistant action reference</strong></summary>
 
 | Action | Purpose |
 | --- | --- |
@@ -316,7 +381,14 @@ library, return Plex tokens, or load poster data on Fire TV.
 
 Normal device and PowerShuffle setup is available through the UI. The actions above are mainly for dashboards, automation and advanced workflows.
 
-## How it stays lightweight and secure
+</details>
+
+## Architecture & security
+
+PowerLink uses Home Assistant's existing device integrations, scoped pairing and validated Plex media identity. It does **not** scan the LAN, create a tunnel or run another ADB connection.
+
+<details>
+<summary><strong>Performance and security safeguards</strong></summary>
 
 - **No LAN scan, extra ADB connection or background Fire TV polling.** The existing Home Assistant integrations handle device communication.
 - **Queue identity is verified.** Episodes are matched using Plex identifiers and season/episode identity, not a title-only guess. HD/4K copies are chosen per destination.
@@ -327,7 +399,14 @@ Normal device and PowerShuffle setup is available through the UI. The actions ab
 
 PowerLink is a controller, **not a Plex server, a remote-access tunnel, or an ADB replacement**.
 
+</details>
+
 ## Releases and development
+
+Use [the latest stable release](https://github.com/The-Power-0/PowerLink/releases/latest) for installation. Expand the history for older milestones and local test commands.
+
+<details>
+<summary><strong>Full release history and developer validation</strong></summary>
 
 | Version | Milestone |
 | --- | --- |
@@ -349,6 +428,8 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 ~~~
 
 GitHub Actions validates changes before release. Automated tests cannot prove the behavior of every physical Fire Stick, HDMI chain, custom wake routine or Plex library mapping.
+
+</details>
 
 ## License
 
