@@ -3,8 +3,7 @@
   "confirm": "ARCHIVE_STALE_BRANCHES_2026_11",
   "retained_branches": [
     "main",
-    "docs/handoff-ack-source-pause-v1.3.6",
-    "maintenance/retire-obsolete-workflows-2026-11"
+    "docs/handoff-ack-source-pause-v1.3.6"
   ],
   "branches": [
     {
@@ -74,7 +73,11 @@
     {
       "name": "migration/standalone-hacs",
       "sha": "d28509349222225430059f20c9cb2dfb6f59a1e3"
+    },
+    {
+      "name": "maintenance/retire-obsolete-workflows-2026-11",
+      "sha": "f6ef33dfdc538e2df4d4cc7d7284c6aa3c256e0e"
     }
   ],
-  "retry_revision": 2
+  "retry_revision": 3
 }
