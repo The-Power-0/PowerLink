@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/brand/powerlink-banner.svg?v=20261108-coordinated" alt="PowerLink logo — approved silver/blue links and blue-to-silver lightning bolt" width="720" />
+<img src="assets/brand/powerlink-banner.svg?v=20261108-coordinated" alt="PowerLink logo — approved silver/blue links and blue-to-silver lightning bolt" width="640" />
 
 # PowerLink
 
