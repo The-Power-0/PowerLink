@@ -165,8 +165,12 @@ async def ws_subscribe_dashboard(hass, connection, msg):
     )
     unsubscribe_state = hass.bus.async_listen(EVENT_STATE_CHANGED, state_changed)
     # Expire "recently_playing" and "starting" without traffic to Fire Sticks.
+    @callback
+    def clock_tick(_now) -> None:
+        changed()
+
     unsubscribe_clock = async_track_time_interval(
-        hass, lambda _now: changed(), timedelta(seconds=30)
+        hass, clock_tick, timedelta(seconds=30)
     )
 
     @callback

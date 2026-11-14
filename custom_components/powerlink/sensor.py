@@ -5,6 +5,7 @@ import hashlib
 import json
 
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import DOMAIN
@@ -103,6 +104,7 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
 
     await update()
 
+    @callback
     def changed() -> None:
         hass.async_create_task(update())
 

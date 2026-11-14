@@ -57,7 +57,7 @@ PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. 
 
 | Component | Version |
 | --- | --- |
-| **PowerLink HACS integration** | **[1.0.2](https://github.com/The-Power-0/PowerLink/releases/tag/v1.0.2)** — approved Wave + Circuit branding, lossless integration assets |
+| **PowerLink HACS integration** | **[1.0.4](https://github.com/The-Power-0/PowerLink/releases/tag/v1.0.4)** — Home Assistant callback threading fixes and approved Wave + Circuit branding |
 | **PowerPlay Fire TV app** | **[2.0.0](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v2.0.0)**; existing 1.4.0+ PowerShuffle compatibility remains |
 | **Home Assistant** | 2025.12.0 or later |
 | **Deployment** | Home Assistant Container is supported — no Supervisor add-on store required |
@@ -69,6 +69,10 @@ The ordinary PowerLink handoff features also work with earlier compatible PowerP
 ## Installation
 
 ### 1. Install PowerLink using HACS
+
+Once PowerLink is accepted into the official HACS catalog, open **HACS**, search for **PowerLink**, and install it as an integration.
+
+**Until the catalog listing is approved**, use the custom-repository method:
 
 1. In Home Assistant, open **HACS → Custom repositories**.
 2. Add `https://github.com/The-Power-0/PowerLink` and select **Integration** as the repository type.
