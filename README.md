@@ -6,7 +6,7 @@
 
 **The Home Assistant companion for PowerPlay. Connect your Fire TVs, move playback between rooms, and power smarter show shuffling.**
 
-[![Latest PowerLink](https://img.shields.io/badge/HACS-Latest%20Release-7C3AED?style=for-the-badge&logo=github&logoColor=white)](https://github.com/The-Power-0/PowerLink/releases/latest)
+[![Latest PowerLink](https://img.shields.io/badge/PowerLink-Latest%20Release-7C3AED?style=for-the-badge&logo=github&logoColor=white)](https://github.com/The-Power-0/PowerLink/releases/latest)
 [![PowerShuffle](https://img.shields.io/badge/Feature-PowerShuffle-6D28D9?style=for-the-badge)](#powershuffle)
 [![Home Assistant](https://img.shields.io/badge/Platform-Home%20Assistant-30303B?style=for-the-badge&logo=homeassistant&logoColor=white)](#installation)
 [![GPLv3](https://img.shields.io/badge/License-GPLv3-5930A5?style=for-the-badge)](LICENSE)
@@ -25,7 +25,7 @@ PowerLink is the **Home Assistant companion** for [PowerPlay](https://github.com
 
 | Goal | Start with |
 | --- | --- |
-| Install the integration | [HACS setup](#installation). |
+| Install the integration | [Marketplace / HACS setup](#installation). |
 | Enable smarter episode rotation | [PowerShuffle](#powershuffle). |
 | Connect another Fire TV | [Device registration](#registering-your-fire-tvs) and [pairing](#pair-powerplay-with-home-assistant). |
 | Continue playback in another room | [Handoffs](#powerlink-handoffs). |
@@ -57,7 +57,7 @@ PowerLink sits between **PowerPlay**, **Home Assistant** and your Plex library. 
 
 | Component | Version |
 | --- | --- |
-| **PowerLink HACS integration** | **[1.0.4](https://github.com/The-Power-0/PowerLink/releases/tag/v1.0.4)** — Home Assistant callback threading fixes and approved Wave + Circuit branding |
+| **PowerLink integration (Marketplace / HACS)** | **[1.0.4](https://github.com/The-Power-0/PowerLink/releases/tag/v1.0.4)** — Home Assistant callback threading fixes and approved Wave + Circuit branding |
 | **PowerPlay Fire TV app** | **[2.0.0](https://github.com/The-Power-0/PowerPlay/releases/tag/powerplay-v2.0.0)**; existing 1.4.0+ PowerShuffle compatibility remains |
 | **Home Assistant** | 2025.12.0 or later |
 | **Deployment** | Home Assistant Container is supported — no Supervisor add-on store required |
@@ -68,23 +68,37 @@ The ordinary PowerLink handoff features also work with earlier compatible PowerP
 
 ## Installation
 
-### 1. Install PowerLink using HACS
+**Official catalog approval pending:** PowerLink is available to install now as a custom repository, but is **not yet listed in the shared Marketplace / HACS catalog**. Our submission, [hacs/default PR #13735](https://github.com/hacs/default/pull/13735), is open and awaiting maintainer approval. Once merged, PowerLink will be discoverable by name in the Marketplace catalog; there is no separate Marketplace submission.
 
-Once PowerLink is accepted into the official HACS catalog, open **HACS**, search for **PowerLink**, and install it as an integration.
+<!-- ha-marketplace:exclude-start -->
+### Home Assistant 2026.11 and newer — built-in Marketplace
 
-**Until the catalog listing is approved**, use the custom-repository method:
+1. Open **Settings → Marketplace**. The Marketplace is built into Home Assistant 2026.11+; do not install the older standalone HACS integration.
+2. In the upper-right corner, select **Add from link**. If prompted, connect a GitHub account.
+3. Enter `https://github.com/The-Power-0/PowerLink`, then select **Add**. If Marketplace asks for a content type, select **Integration**.
+4. Open the new **PowerLink** repository entry, select **Install**, and follow any restart notice.
+5. If the integration setup doesn't open automatically, go to **Settings → Devices & services → Add integration → PowerLink**.
 
-1. In Home Assistant, open **HACS → Custom repositories**.
+[Open PowerLink in your Home Assistant Marketplace](https://my.home-assistant.io/redirect/marketplace_repository/?owner=The-Power-0&repository=PowerLink&category=integration) (Home Assistant 2026.11+).
+
+**After [PR #13735](https://github.com/hacs/default/pull/13735) is approved and merged:** Search for **PowerLink** directly in **Settings → Marketplace**, then select **Install**. You won't need **Add from link**. Marketplace will recognize previously added custom repositories once they enter the catalog, so existing installations won't need to be reinstalled.
+
+### Home Assistant 2026.10 and earlier — legacy HACS
+
+1. Open **HACS → Custom repositories** in Home Assistant.
 2. Add `https://github.com/The-Power-0/PowerLink` and select **Integration** as the repository type.
-3. Install the [latest stable release](https://github.com/The-Power-0/PowerLink/releases/latest), then **restart Home Assistant**.
-4. Go to **Settings → Devices & Services → Add integration → PowerLink**.
+3. Install the [latest compatible stable release](https://github.com/The-Power-0/PowerLink/releases/latest), then restart Home Assistant if needed.
+4. Go to **Settings → Devices & services → Add integration → PowerLink**.
 
-For a manual installation, copy the `custom_components/powerlink` folder into `/config/custom_components/powerlink` and restart Home Assistant. Installation does not require a separate database, MQTT broker or additional ADB server.
+**Already using HACS?** When you upgrade to Home Assistant 2026.11+, Home Assistant migrates installed HACS repositories and their update entities to the built-in Marketplace automatically. You don't need to uninstall PowerLink first.
+
+For a manual installation, copy `custom_components/powerlink` into `/config/custom_components/powerlink` and restart Home Assistant. PowerLink doesn't require an additional database, MQTT broker, or ADB server.
+<!-- ha-marketplace:exclude-end -->
 
 <details>
 <summary><strong>Connectivity, networking and manual installation notes</strong></summary>
 
-### 2. Configure connectivity
+### Configure connectivity
 
 Provide the **Home Assistant base URL** that each Fire Stick can reach, such as a private LAN URL or an HTTPS URL reachable over an existing routed network. PowerLink can optionally use configured Plex server credentials for **targeted matching** of HD and 4K copies.
 
@@ -415,7 +429,7 @@ Use [the latest stable release](https://github.com/The-Power-0/PowerLink/release
 | [0.2.0](https://github.com/The-Power-0/PowerLink/releases/tag/v0.2.0) | Player pairing, device UI and Fire TV-initiated transfers. |
 | **0.1.x · early development** | Initial standalone Home Assistant controller and remote handoff support, before the published 0.2.x releases. |
 
-PowerLink is maintained separately from the [PowerPlay Fire TV app](https://github.com/The-Power-0/PowerPlay). Use [Latest releases](https://github.com/The-Power-0/PowerLink/releases/latest) for the current HACS integration.
+PowerLink is maintained separately from the [PowerPlay Fire TV app](https://github.com/The-Power-0/PowerPlay). Use [Latest releases](https://github.com/The-Power-0/PowerLink/releases/latest) for the current Marketplace / HACS-compatible integration.
 
 Local validation:
 
